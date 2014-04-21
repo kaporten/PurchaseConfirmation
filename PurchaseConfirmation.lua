@@ -32,7 +32,7 @@ local log = nil
  
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = "0.7"
+local ADDON_VERSION = "0.7.1"
 
 local VENDOR_ADDON = "Vendor" -- Used when loading/declaring dependencies to Vendor
 local kstrTabBuy = "VendorTab0"
