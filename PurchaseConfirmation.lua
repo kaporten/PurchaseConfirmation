@@ -32,7 +32,8 @@ local log = nil
  
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = "0.7.1"
+local ADDON_VERSION = "0.7.2"
+local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
 
 local VENDOR_ADDON = "Vendor" -- Used when loading/declaring dependencies to Vendor
 local kstrTabBuy = "VendorTab0"
@@ -104,7 +105,7 @@ function PurchaseConfirmation:OnDocLoaded()
 	
 	-- Now that forms are loaded, remove XML doc for gc
 	self.xmlDoc = nil
-	   	
+	  
 	
 	--[[ HARDCODED DEFAULT SETTINGS ]]
 	
@@ -113,7 +114,7 @@ function PurchaseConfirmation:OnDocLoaded()
 		-- Fixed
 		tSettings = {}
 		tSettings.bFixedThresholdEnabled = true	-- Fixed threshold enabled
-		tSettings.monFixedThreshold = 100000	-- Breach at 10g
+		tSettings.monFixedThreshold = 10000		-- Breach at 1g
 	
 		-- Empty coffers
 		tSettings.bEmptyCoffersThresholdEnabled = true	-- Empty Coffers threshold enabled
@@ -159,17 +160,19 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 		return
 	end
 	
+	-- No itemdata, somehow... "this should never happen"
 	if not tItemData then
 		logwarn("CheckPurchase", "No tItemData")
 		PurchaseConfirmation:DelegateToVendor(tItemData)
 		return
 	end
-	
+
+	-- Currently, only Credit purchases are supported.
 	if tItemData.tPriceInfo.eCurrencyType1 ~= 1 or tItemData.tPriceInfo.eCurrencyType2 ~= 1 then
 		loginfo("CheckPurchase", "Unsupported currenttypes " .. tostring(tItemData.tPriceInfo.eCurrencyType1) .. " and " .. tostring(tItemData.tPriceInfo.eCurrencyType2))
 		PurchaseConfirmation:DelegateToVendor(tItemData)
 		return
-	end
+	end	
 	
 	-- Extract current purchase price from tItemdata
 	local monPrice = PurchaseConfirmation:GetItemPrice(tItemData)
@@ -268,12 +271,9 @@ function PurchaseConfirmation:GetItemPrice(tItemData)
 	logenter("GetItemPrice")
 
 	self.tItemData = tItemData -- Add to self for in-game debugging
-	--[[ 
-		TODO: Stack size multiplication? Current stock UI does not allow multi-purchases,
-		but that is sure to come later on; Apollo API supports multi-purchases, but Vendor
-		hardcodes itemcount=1 during purchasing. 
-	]] 	
-	monPrice = tItemData.tPriceInfo.nAmount1 --:Multiply(tItemData.nStackSize) ?
+
+	-- NB: "itemData" is a table property on tItemData. Yeah.
+	monPrice = tItemData.itemData:GetBuyPrice():Multiply(tItemData.nStackSize):GetAmount()	
 	logdebug("GetItemPrice", "Item price extracted: " .. monPrice)
 		
 	logexit("GetItemPrice")
@@ -374,6 +374,13 @@ end
 -- Called whenver a transaction is approved. Calls the real Vendor:OnBuy.
 function PurchaseConfirmation:DelegateToVendor(tItemData)
 	logenter("DelegateToVendor")
+	
+	logdebug("DelegateToVendor", "debugMode=" .. tostring(DEBUG_MODE))
+	if DEBUG_MODE == true then
+		Print("PURCHASE CONFIRMATION DEBUG MODE, SKIPPING ACTUAL PURCHASE")
+		return
+	end
+	
 	vendorFinalizeBuy(Apollo.GetAddon(VENDOR_ADDON), tItemData)
 	logexit("DelegateToVendor")
 end
