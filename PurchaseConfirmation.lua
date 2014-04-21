@@ -51,9 +51,10 @@ end
 -- Describes configuration button options and dependencies (Vendor) for load-ordering I assume.
 function PurchaseConfirmation:Init()
 	local bHasConfigureFunction = true
-	local strConfigureButtonText = "Purch. Conf."
+	local strConfigureButtonText = "Purchase Conf."
 	local tDependencies = {VENDOR_ADDON, "Gemini:Logging-1.2"}
-    Apollo.RegisterAddon(self, bHasConfigureButton, strConfigureButtonText, tDependencies)
+	
+    Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
  
 -- OnLoad called when addon is allowed to load. 
