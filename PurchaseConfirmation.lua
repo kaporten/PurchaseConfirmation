@@ -32,7 +32,7 @@ local log = nil
  
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = "0.7.2"
+local ADDON_VERSION = "0.7.3"
 local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
 
 local VENDOR_ADDON = "Vendor" -- Used when loading/declaring dependencies to Vendor
@@ -70,7 +70,9 @@ function PurchaseConfirmation:OnLoad()
 
     -- load our form file
 	self.xmlDoc = XmlDoc.CreateFromFile("PurchaseConfirmation.xml")
-	self.xmlDoc:RegisterCallback("OnDocLoaded", self)	
+	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
+	
+	Apollo.RegisterEventHandler("CloseVendorWindow", "OnCancelPurchase", self)
 		
 	logexit("OnLoad")
 end
