@@ -32,7 +32,7 @@ local log = nil
  
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = "0.7.3"
+local ADDON_VERSION = "0.7.4"
 local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
 
 local VENDOR_ADDON = "Vendor" -- Used when loading/declaring dependencies to Vendor
@@ -51,9 +51,10 @@ end
 -- Describes configuration button options and dependencies (Vendor) for load-ordering I assume.
 function PurchaseConfirmation:Init()
 	local bHasConfigureFunction = true
-	local strConfigureButtonText = "Purch. Conf."
+	local strConfigureButtonText = "Purchase Conf."
 	local tDependencies = {VENDOR_ADDON, "Gemini:Logging-1.2"}
-    Apollo.RegisterAddon(self, bHasConfigureButton, strConfigureButtonText, tDependencies)
+	
+    Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
  
 -- OnLoad called when addon is allowed to load. 
