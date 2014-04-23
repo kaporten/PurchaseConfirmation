@@ -19,6 +19,23 @@ require "Apollo"
 -- Addon object itself
 local PurchaseConfirmation = {} 
 
+--[[ 
+	TODO: Move settings and window/function handles inside PurchaseConfirmation scope.
+	Only constants should be outside of instance-scope.
+	
+	This is not entirely trivial, since the CheckPurchase function *and all functions 
+	down the call stack* are injected into the Vendor addon. This leaves them unable
+	to reference self via the : invocation, since the self there will be Vendor, not
+	PurchaseConfirmation. 
+	Solutions: 
+	Have the methods lookup Apollo.GetAddon("PurchaseConfirmation") and access the 
+	variables that way? Most likely the "injection entry point" (CheckPurchase) could
+	just do a one-time lookup of tSettings and window-handles, and then pass refs to
+	called functions. 
+	Consider moving injected code into a seperate file / scope to clarify that they are
+	NOT internal workings of PurchaseConfirmation scope.
+]]
+	
 -- Settings and window handles
 local tSettings = nil
 local wndConfirmDialog = nil
