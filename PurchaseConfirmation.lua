@@ -11,10 +11,10 @@
 	If I'm missing license documents or similar disclaimers, please let me know.
 ]]
 
-require "Window"
-require "GameLib"
 require "Apollo"
-
+require "GameLib"
+require "Window"
+require "Money"
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
@@ -130,26 +130,7 @@ function PurchaseConfirmation:OnDocLoaded()
 	--[[ HARDCODED DEFAULT SETTINGS ]]
 	
 	-- tSettings will be poulated prior to OnLoad, in OnRestore if saved settings exist
-	if tSettings == nil then
-		-- Fixed
-		tSettings = {}
-		tSettings.bFixedThresholdEnabled = true	-- Fixed threshold enabled
-		tSettings.monFixedThreshold = 10000		-- Breach at 1g
-	
-		-- Empty coffers
-		tSettings.bEmptyCoffersThresholdEnabled = true	-- Empty Coffers threshold enabled
-		tSettings.nPercentEmptyCoffers = 75				-- Breach at 80% of current avail credits
-	
-		-- Average
-		tSettings.bAverageThresholdEnabled = true	-- Average threshold enabled
-		tSettings.monAverageThreshold = 0			-- Initial calculated average history
-		tSettings.nPercentAboveAverage = 75			-- Breach at 75% above average spending
-		tSettings.nPriceHistorySize = 25			-- Keep 25 elements in price history
-		tSettings.seqPriceHistory = {}				-- Empty list of price elements
-		
-		-- Puny limit
-		tSettings.monPunyLimitPerLevel = 100 -- Default puny limit = 1s per level
-	end
+	tSettings = PurchaseConfirmation:DefaultSettings()
 	
 	
 	--[[ ADDON REGISTRATION AND FUNCTION INJECTION ]]
@@ -212,8 +193,8 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 	-- Fixed threshold config
 	local tFixedThreshold = {}
 	tFixedThreshold.monPrice = monPrice
-	tFixedThreshold.monThreshold = tSettings.monFixedThreshold
-	tFixedThreshold.bEnabled = tSettings.bFixedThresholdEnabled
+	tFixedThreshold.monThreshold = tSettings.tFixed.monThreshold
+	tFixedThreshold.bEnabled = tSettings.tFixed.bEnabled
 	tFixedThreshold.strType = "Fixed"
 	tFixedThreshold.strWarning = "This is super expensive."
 	tThresholds[#tThresholds+1] = tFixedThreshold
@@ -222,7 +203,7 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 	local tEmptyCoffersThreshold = {}
 	tEmptyCoffersThreshold.monPrice = monPrice
 	tEmptyCoffersThreshold.monThreshold = PurchaseConfirmation:GetEmptyCoffersThreshold()
-	tEmptyCoffersThreshold.bEnabled = tSettings.bEmptyCoffersThresholdEnabled
+	tEmptyCoffersThreshold.bEnabled = tSettings.tEmptyCoffers.bEnabled
 	tEmptyCoffersThreshold.strType = "EmptyCoffers"
 	tEmptyCoffersThreshold.strWarning = "This will pretty much bankrupt you."
 	tThresholds[#tThresholds+1] = tEmptyCoffersThreshold
@@ -230,8 +211,8 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 	-- Average threshold config
 	local tAverageThreshold = {}
 	tAverageThreshold.monPrice = monPrice
-	tAverageThreshold.monThreshold = tSettings.monAverageThreshold
-	tAverageThreshold.bEnabled = tSettings.bAverageThresholdEnabled
+	tAverageThreshold.monThreshold = tSettings.tAverage.monThreshold
+	tAverageThreshold.bEnabled = tSettings.tAverage.bEnabled
 	tAverageThreshold.strType = "Average"
 	tAverageThreshold.strWarning = "You don't usually buy stuff this expensive."
 	tThresholds[#tThresholds+1] = tAverageThreshold
@@ -253,8 +234,8 @@ end
 function PurchaseConfirmation:GetEmptyCoffersThreshold()
 	logenter("GetEmptyCoffersThreshold")
 	local monCurrentPlayerCash = GameLib.GetPlayerCurrency():GetAmount()
-	local threshold = math.floor(monCurrentPlayerCash * (tSettings.nPercentEmptyCoffers/100))
-	loginfo("GetEmptyCoffersThreshold", "Empty coffers threshold calculated: " .. tostring(tSettings.nPercentEmptyCoffers) .. "% of " .. tostring(monCurrentPlayerCash) .. " = " .. tostring(threshold))
+	local threshold = math.floor(monCurrentPlayerCash * (tSettings.tEmptyCoffers.nPercent/100))
+	loginfo("GetEmptyCoffersThreshold", "Empty coffers threshold calculated: " .. tostring(tSettings.tEmptyCoffers.nPercent) .. "% of " .. tostring(monCurrentPlayerCash) .. " = " .. tostring(threshold))
 	logexit("GetEmptyCoffersThreshold")
 	return threshold
 end
@@ -304,10 +285,10 @@ end
 function PurchaseConfirmation:GetPunyLimit()
 	logenter("GetPunyLimit")
 	
-	-- Calc punylimit as simple function of current level * monPunyLimitPerLevel
+	-- Calc punylimit as simple function of current level * tPuny.monThreshold
 	local nLevel = GameLib.GetPlayerUnit():GetBasicStats().nLevel
-	local monPunyLimit = nLevel * tonumber(tSettings.monPunyLimitPerLevel)
-	logdebug("GetPunyLimit", "playerLevel=" .. nLevel .. ", monPunyLimitPerLevel=" .. tSettings.monPunyLimitPerLevel ..", calculated monPunyLimit=" .. monPunyLimit)
+	local monPunyLimit = nLevel * tonumber(tSettings.tPuny.monThreshold)
+	logdebug("GetPunyLimit", "playerLevel=" .. nLevel .. ", tPuny.monThreshold=" .. tSettings.tPuny.monThreshold ..", calculated monPunyLimit=" .. monPunyLimit)
 	
 	logexit("GetPunyLimit")
 	return monPunyLimit
@@ -353,19 +334,19 @@ function PurchaseConfirmation:ConfirmPurchase(tItemData)
 	table.insert(tSettings.seqPriceHistory, monPrice)
 	
 	-- Remove oldest element(s, in case of history size reduction) from start of list if size is overgrown
-	while #tSettings.seqPriceHistory>tSettings.nPriceHistorySize do
+	while #tSettings.seqPriceHistory>tSettings.tAverage.nHistorySize do
 		table.remove(tSettings.seqPriceHistory, 1)
 	end
 	
 	-- Update the average threshold
-	local oldAverage = tSettings.monAverageThreshold
+	local oldAverage = tSettings.tAverage.monThreshold
 	local newAverage = PurchaseConfirmation:CalculateAverage()
 	
-	-- Update the current monAverageThreshold, so it is ready for next purchase-test
-	newAverage = newAverage * (1+(tSettings.nPercentAboveAverage/100)) -- add x% to threshold
-	tSettings.monAverageThreshold = math.floor(newAverage ) -- round off
+	-- Update the current tAverage.monThreshold, so it is ready for next purchase-test
+	newAverage = newAverage * (1+(tSettings.tAverage.nPercent/100)) -- add x% to threshold
+	tSettings.tAverage.monThreshold = math.floor(newAverage ) -- round off
 	
-	loginfo("ConfirmPurchase", "Updated Average threshold from " .. tostring(oldAverage) .. " to " .. tostring(tSettings.monAverageThreshold))
+	loginfo("ConfirmPurchase", "Updated Average threshold from " .. tostring(oldAverage) .. " to " .. tostring(tSettings.tAverage.monThreshold))
 	
 	PurchaseConfirmation:DelegateToVendor(tItemData)
 	logenter("ConfirmPurchase")
@@ -436,6 +417,50 @@ end
 -- SettingsForm button click functions
 ---------------------------------------------------------------------------------------------------
 
+function PurchaseConfirmation:DefaultSettings()
+
+	-- Contains individual settings for all currency types
+	local tAllSettings = {}
+
+	-- Initially populate all currency type with "conservative" / generic default values 	
+	for k,_ in Money.CodeEnumCurrencyType.Credits do
+		local t
+		tAllSettings[k] = t
+		
+		-- Fixed
+		t.tFixed = {}
+		t.tFixed.bEnabled = false		-- Fixed threshold disabled
+		t.tFixed.monThreshold = 0		-- No amount configured
+		
+		-- Empty coffers
+		t.tEmptyCoffers = {}
+		t.tEmptyCoffers.bEnabled = true	-- Empty Coffers threshold enabled
+		t.tEmptyCoffers.nPercent = 75	-- Breach at 75% of current avail currency
+		
+		-- Average
+		t.tAverage = {}
+		t.tAverage.bEnabled = true		-- Average threshold enabled
+		t.tAverage.monThreshold = 0		-- Initial calculated average history
+		t.tAverage.nPercent = 75		-- Breach at 75% above average spending
+		t.tAverage.nHistorySize = 25	-- Keep 25 elements in price history
+		t.tAverage.seqPriceHistory = {}	-- Empty list of price elements
+			
+		-- Puny limit
+		t.tPuny = {}
+		t.tPuny.bEnabled = false		-- Puny threshold disabled
+		t.tPuny.monThreshold = 0 		-- No amount configured
+	end
+
+	-- Override default values for Credits with appropriate Credits-only defaults
+	tAllSettings[Money.CodeEnumCurrencyType.Credits].tFixed.bEnabled = true			-- Enable fixed threshold
+	tAllSettings[Money.CodeEnumCurrencyType.Credits].tFixed.monThreshold = 50000	-- 5g
+	tAllSettings[Money.CodeEnumCurrencyType.Credits].tPuny.bEnabled = true			-- Enable puny threshold
+	tAllSettings[Money.CodeEnumCurrencyType.Credits].tFixed.monThreshold = 100		-- 1s (per level)
+
+	return tAllSettings	
+end
+
+
 -- When the settings window is closed via Cancel, revert all changed values to current config
 function PurchaseConfirmation:OnCancelSettings()
 	logenter("OnCancelSettings")
@@ -454,67 +479,68 @@ function PurchaseConfirmation:OnAcceptSettings()
 	-- Hide settings window
 	wndSettings:Show(false, true)
 	
+	-- TODO: Extract current currency selection from GUI, find appropriate tSettings
 	
 	--[[ FIXED THRESHOLD SETTINGS ]]
 	
 	-- Fixed threshold checkbox
-	tSettings.bFixedThresholdEnabled = PurchaseConfirmation:ExtractSettingCheckbox(
+	tSettings.tFixed.bEnabled = PurchaseConfirmation:ExtractSettingCheckbox(
 		wndSettings:FindChild("FixedSection"):FindChild("FixedEnableButton"),
-		"bFixedThresholdEnabled",
-		tSettings.bFixedThresholdEnabled)
+		"tFixed.bEnabled",
+		tSettings.tFixed.bEnabled)
 	
 	-- Fixed threshold amount
-	tSettings.monFixedThreshold = PurchaseConfirmation:ExtractSettingAmount(
+	tSettings.tFixed.monThreshold = PurchaseConfirmation:ExtractSettingAmount(
 		wndSettings:FindChild("FixedSection"):FindChild("FixedAmount"),
-		"monFixedThreshold",
-		tSettings.monFixedThreshold)
+		"tFixed.monThreshold",
+		tSettings.tFixed.monThreshold)
 
 
 	--[[ EMPTY COFFERS SETTINGS ]]
 	
 	-- Empty coffers threshold checkbox
-	tSettings.bEmptyCoffersThresholdEnabled = PurchaseConfirmation:ExtractSettingCheckbox(
+	tSettings.tEmptyCoffers.bEnabled = PurchaseConfirmation:ExtractSettingCheckbox(
 		wndSettings:FindChild("EmptyCoffersEnableButton"),
-		"bEmptyCoffersThresholdEnabled",
-		tSettings.bEmptyCoffersThresholdEnabled)
+		"tEmptyCoffers.bEnabled",
+		tSettings.tEmptyCoffers.bEnabled)
 	
 	-- Empty coffers percentage
-	tSettings.nPercentEmptyCoffers = PurchaseConfirmation:ExtractOrRevertSettingNumber(
+	tSettings.tEmptyCoffers.nPercent = PurchaseConfirmation:ExtractOrRevertSettingNumber(
 		wndSettings:FindChild("EmptyCoffersEditBox"),
-		"nPercentEmptyCoffers",
-		tSettings.nPercentEmptyCoffers,
+		"tEmptyCoffers.nPercent",
+		tSettings.tEmptyCoffers.nPercent,
 		1, 100)
 	
 	
 	--[[ AVERAGE THRESHOLD SETTINGS ]]
 
 	-- Average threshold checkbox
-	tSettings.bAverageThresholdEnabled = PurchaseConfirmation:ExtractSettingCheckbox(
+	tSettings.tAverage.bEnabled = PurchaseConfirmation:ExtractSettingCheckbox(
 		wndSettings:FindChild("AverageEnableButton"),
-		"bAverageThresholdEnabled",
-		tSettings.bAverageThresholdEnabled)
+		"tAverage.bEnabled",
+		tSettings.tAverage.bEnabled)
 
 	-- Average percent number input field
-	tSettings.nPercentAboveAverage = PurchaseConfirmation:ExtractOrRevertSettingNumber(
+	tSettings.tAverage.nPercent = PurchaseConfirmation:ExtractOrRevertSettingNumber(
 		wndSettings:FindChild("AveragePercentEditBox"),
-		"nPercentAboveAverage",
-		tSettings.nPercentAboveAverage,
+		"tAverage.nPercent",
+		tSettings.tAverage.nPercent,
 		1, 999)
 
 	-- History size number input field
-	tSettings.nPriceHistorySize = PurchaseConfirmation:ExtractOrRevertSettingNumber(
+	tSettings.tAverage.nHistorySize = PurchaseConfirmation:ExtractOrRevertSettingNumber(
 		wndSettings:FindChild("AverageHistorySizeEditBox"),
-		"nPriceHistorySize",
-		tSettings.nPriceHistorySize,
+		"tAverage.nHistorySize",
+		tSettings.tAverage.nHistorySize,
 		1, 999)
 
 
 	--[[ PUNY AMOUNT SETTINGS ]]
 	
-	tSettings.monPunyLimitPerLevel = PurchaseConfirmation:ExtractSettingAmount(
+	tSettings.tPuny.monThreshold = PurchaseConfirmation:ExtractSettingAmount(
 		wndSettings:FindChild("PunyAmount"),
-		"monPunyLimitPerLevel",
-		tSettings.monPunyLimitPerLevel)
+		"tPuny.monThreshold",
+		tSettings.tPuny.monThreshold)
 	
 	logexit("OnAcceptSettings")
 end
@@ -559,21 +585,33 @@ end
 function PurchaseConfirmation:PopulateSettingsWindow()
 	logenter("PopulateSettingsWindow")
 	
+	-- TODO: Single settings->Multi supp
+	-- TODO: Drill down into GUI sections, rename elements to "local" names like "EnableButton" etc. No need for the full hierarchy en every gui element name.
+	
 	-- Fixed settings
-	if tSettings.bFixedThresholdEnabled ~= nil then	wndSettings:FindChild("FixedEnableButton"):SetCheck(tSettings.bFixedThresholdEnabled) end
-	if tSettings.monFixedThreshold ~= nil then wndSettings:FindChild("FixedAmount"):SetAmount(tSettings.monFixedThreshold, true) end
+	local fixedSection = wndSettings:FindChild("FixedSection")
+	if tSettings.tFixed.bEnabled ~= nil then fixedSection:FindChild("EnableButton"):SetCheck(tSettings.tFixed.bEnabled) end
+	if tSettings.tFixed.monThreshold ~= nil then fixedSection:FindChild("Amount"):SetAmount(tSettings.tFixed.monThreshold, true) end
 
 	-- Empty coffers settings
-	if tSettings.bEmptyCoffersThresholdEnabled ~= nil then wndSettings:FindChild("EmptyCoffersEnableButton"):SetCheck(tSettings.bEmptyCoffersThresholdEnabled) end
-	if tSettings.nPercentEmptyCoffers ~= nil then wndSettings:FindChild("EmptyCoffersEditBox"):SetText(tSettings.nPercentEmptyCoffers) end
+	local emptyCoffersSection = wndSettings:FindChild("EmptyCoffersSection")
+	if tSettings.tEmptyCoffers.bEnabled ~= nil then emptyCoffersSection:FindChild("EnableButton"):SetCheck(tSettings.tEmptyCoffers.bEnabled) end
+	if tSettings.tEmptyCoffers.nPercent ~= nil then emptyCoffersSection:FindChild("PercentEditBox"):SetText(tSettings.tEmptyCoffers.nPercent) end
 	
 	-- Average settings
-	if tSettings.bAverageThresholdEnabled ~= nil then wndSettings:FindChild("AverageEnableButton"):SetCheck(tSettings.bAverageThresholdEnabled) end
-	if tSettings.nPercentAboveAverage ~= nil then wndSettings:FindChild("AveragePercentEditBox"):SetText(tSettings.nPercentAboveAverage) end
-	if tSettings.nPriceHistorySize ~= nil then wndSettings:FindChild("AverageHistorySizeEditBox"):SetText(tSettings.nPriceHistorySize) end
+	local averageSection = wndSettings:FindChild("AverageSection")
+	if tSettings.tAverage.bEnabled ~= nil then averageSection:FindChild("EnableButton"):SetCheck(tSettings.tAverage.bEnabled) end
+	if tSettings.tAverage.nPercent ~= nil then averageSection:FindChild("PercentEditBox"):SetText(tSettings.tAverage.nPercent) end
+	if tSettings.tAverage.nHistorySize ~= nil then averageSection:FindChild("HistorySizeEditBox"):SetText(tSettings.tAverage.nHistorySize) end
+	--[[ 
+		The sequence of collected amounts (seqPriceHistory) is not populated into the settings GUI.
+		Consider adding this as a tooltip or collapsible window.
+	]]
 	
 	-- Puny settings
-	if tSettings.monPunyLimitPerLevel ~=nil then wndSettings:FindChild("PunyAmount"):SetAmount(tSettings.monPunyLimitPerLevel, true) end
+	local punySection = wndSettings:FindChild("PunySection")
+	if tSettings.tPuny.bEnabled ~=nil then punySection:FindChild("PunySection"):FindChild("EnableButton"):SetCheck(tSettings.tPuny.bEnabled) end
+	if tSettings.tPuny.monThreshold ~=nil then punySection:FindChild("Amount"):SetAmount(tSettings.tPuny.monThreshold, true) end
 	
 	logexit("PopulateSettingsWindow")
 end
