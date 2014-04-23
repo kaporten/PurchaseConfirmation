@@ -5,7 +5,7 @@
 
 --[[
 	PurchaseConfirmation by Porten. Please contact me via Curse for suggestions, 
-	bug-reports etc.	
+	bug-reports etc.
 	
 	Props for the inspect and Gemini libraries go to their respective authors. 
 	If I'm missing license documents or similar disclaimers, please let me know.
@@ -74,7 +74,7 @@ function PurchaseConfirmation:OnLoad()
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
 	
 	Apollo.RegisterEventHandler("CloseVendorWindow", "OnCancelPurchase", self)
-		
+	
 	logexit("OnLoad")
 end
 
@@ -86,12 +86,12 @@ function PurchaseConfirmation:OnDocLoaded()
 		Apollo.AddAddonErrorText(self, "XML document was not loaded")
 		return
 	end
-
+	
 	
 	--[[ BUILD FORMS ]]
-		
+	
 	wndConfirmDialog = Apollo.LoadForm(self.xmlDoc, "ConfirmPurchaseDialogForm", nil, self)
-	if wndConfirmDialog == nil then			
+	if wndConfirmDialog == nil then
 		Apollo.AddAddonErrorText(self, "Could not load the ConfirmDialog window for some reason")
 		logerror("OnDocLoaded", "wndConfirmDialog is nil!")
 		return
@@ -99,7 +99,7 @@ function PurchaseConfirmation:OnDocLoaded()
 	wndConfirmDialog:Show(false, true)
 
 	wndSettings = Apollo.LoadForm(self.xmlDoc, "SettingsForm", nil, self)
-	if wndSettings == nil then			
+	if wndSettings == nil then
 		Apollo.AddAddonErrorText(self, "Could not load the SettingsForm window for some reason")
 		logerror("OnDocLoaded", "wndSettings is nil!")
 		return
@@ -108,7 +108,7 @@ function PurchaseConfirmation:OnDocLoaded()
 	
 	-- Now that forms are loaded, remove XML doc for gc
 	self.xmlDoc = nil
-
+	
 	
 	--[[ HARDCODED DEFAULT SETTINGS ]]
 	
@@ -131,17 +131,17 @@ function PurchaseConfirmation:OnDocLoaded()
 		tSettings.seqPriceHistory = {}				-- Empty list of price elements
 		
 		-- Puny limit
-		tSettings.monPunyLimitPerLevel = 100 -- Default puny limit = 1s per level		
+		tSettings.monPunyLimitPerLevel = 100 -- Default puny limit = 1s per level
 	end
-
-		
+	
+	
 	--[[ ADDON REGISTRATION AND FUNCTION INJECTION ]]
 	
 	-- Slash command opens settings window
 	Apollo.RegisterSlashCommand("purchaseconfirmation", "OnConfigure", self)
 	Apollo.RegisterSlashCommand("purconf", "OnConfigure", self)
 
-	-- Inject own OnBuy function into Vendor addon	
+	-- Inject own OnBuy function into Vendor addon
 	vendorFinalizeBuy = Apollo.GetAddon(VENDOR_ADDON).FinalizeBuy -- store ref to original function
 	Apollo.GetAddon(VENDOR_ADDON).FinalizeBuy = PurchaseConfirmation.CheckPurchase -- replace Vendors FinalizeBuy with own
 	
@@ -175,11 +175,11 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 		loginfo("CheckPurchase", "Unsupported currenttypes " .. tostring(tItemData.tPriceInfo.eCurrencyType1) .. " and " .. tostring(tItemData.tPriceInfo.eCurrencyType2))
 		PurchaseConfirmation:DelegateToVendor(tItemData)
 		return
-	end	
+	end
 	
 	-- Extract current purchase price from tItemdata
 	local monPrice = PurchaseConfirmation:GetItemPrice(tItemData)
-
+	
 	-- Check if price is below puny limit
 	local monPunyLimit = PurchaseConfirmation:GetPunyLimit()
 	if monPunyLimit and monPrice < monPunyLimit then
@@ -217,8 +217,8 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 	tAverageThreshold.bEnabled = tSettings.bAverageThresholdEnabled
 	tAverageThreshold.strType = "Average"
 	tAverageThreshold.strWarning = "You don't usually buy stuff this expensive."
-	tThresholds[#tThresholds+1] = tAverageThreshold	
-
+	tThresholds[#tThresholds+1] = tAverageThreshold
+	
 	-- Check all thresholds in order, raise warning for first breach
 	for i,v in ipairs(tThresholds) do
 		log:debug(tostring(i))
@@ -239,7 +239,7 @@ function PurchaseConfirmation:GetEmptyCoffersThreshold()
 	local threshold = math.floor(monCurrentPlayerCash * (tSettings.nPercentEmptyCoffers/100))
 	loginfo("GetEmptyCoffersThreshold", "Empty coffers threshold calculated: " .. tostring(tSettings.nPercentEmptyCoffers) .. "% of " .. tostring(monCurrentPlayerCash) .. " = " .. tostring(threshold))
 	logexit("GetEmptyCoffersThreshold")
-	return threshold	
+	return threshold
 end
 
 -- Checks if a given threshold is enabled & breached
@@ -274,11 +274,11 @@ function PurchaseConfirmation:GetItemPrice(tItemData)
 	logenter("GetItemPrice")
 
 	self.tItemData = tItemData -- Add to self for in-game debugging
-
+	
 	-- NB: "itemData" is a table property on tItemData. Yeah.
-	monPrice = tItemData.itemData:GetBuyPrice():Multiply(tItemData.nStackSize):GetAmount()	
+	monPrice = tItemData.itemData:GetBuyPrice():Multiply(tItemData.nStackSize):GetAmount()
 	logdebug("GetItemPrice", "Item price extracted: " .. monPrice)
-		
+	
 	logexit("GetItemPrice")
 	return monPrice
 end
@@ -315,7 +315,7 @@ function PurchaseConfirmation:RequestPurchaseConfirmation(tThreshold, tItemData)
 
 		TODO: Instead of having 1 single dialog window which cockblocks Vendor 
 		while waiting for response, have multiple instances of dialog boxes?
-		Could be done by keeping XML and loading a new form per request.		
+		Could be done by keeping XML and loading a new form per request.
 		Probably just more confusing for the user, compared to blocking Vendor 
 		while waiting for approval.
 	]]
@@ -338,12 +338,12 @@ function PurchaseConfirmation:ConfirmPurchase(tItemData)
 	-- Remove oldest element(s, in case of history size reduction) from start of list if size is overgrown
 	while #tSettings.seqPriceHistory>tSettings.nPriceHistorySize do
 		table.remove(tSettings.seqPriceHistory, 1)
-	end		
+	end
 	
 	-- Update the average threshold
 	local oldAverage = tSettings.monAverageThreshold
 	local newAverage = PurchaseConfirmation:CalculateAverage()
-		
+	
 	-- Update the current monAverageThreshold, so it is ready for next purchase-test
 	newAverage = newAverage * (1+(tSettings.nPercentAboveAverage/100)) -- add x% to threshold
 	tSettings.monAverageThreshold = math.floor(newAverage ) -- round off
@@ -368,7 +368,7 @@ function PurchaseConfirmation:CalculateAverage()
 	
 	local avg = math.floor(total / #tSettings.seqPriceHistory)
 	logdebug("CalculateAverage", "Average=" .. avg)
-
+	
 	logexit("CalculateAverage")
 	
 	return avg
@@ -398,10 +398,10 @@ function PurchaseConfirmation:OnConfirmPurchase()
 	-- Hide dialog and register confirmed purchase
 	wndConfirmDialog:Show(false, true)
 	Apollo.GetAddon(VENDOR_ADDON).wndVendor:Enable(true)
-		
+	
 	-- Extract item being purchased, and delegate to Vendor
 	local tItemData = wndConfirmDialog:GetData()
-	PurchaseConfirmation:ConfirmPurchase(tItemData)	
+	PurchaseConfirmation:ConfirmPurchase(tItemData)
 
 	logexit("OnConfirmPurchase")
 end
@@ -437,7 +437,7 @@ function PurchaseConfirmation:OnAcceptSettings()
 	-- Hide settings window
 	wndSettings:Show(false, true)
 	
-
+	
 	--[[ FIXED THRESHOLD SETTINGS ]]
 	
 	-- Fixed threshold checkbox
@@ -467,15 +467,15 @@ function PurchaseConfirmation:OnAcceptSettings()
 		"nPercentEmptyCoffers",
 		tSettings.nPercentEmptyCoffers,
 		1, 100)
-		
-		
+	
+	
 	--[[ AVERAGE THRESHOLD SETTINGS ]]
 
 	-- Average threshold checkbox
 	tSettings.bAverageThresholdEnabled = PurchaseConfirmation:ExtractSettingCheckbox(
 		wndSettings:FindChild("AverageEnableButton"),
 		"bAverageThresholdEnabled",
-		tSettings.bAverageThresholdEnabled)		
+		tSettings.bAverageThresholdEnabled)
 
 	-- Average percent number input field
 	tSettings.nPercentAboveAverage = PurchaseConfirmation:ExtractOrRevertSettingNumber(
@@ -497,7 +497,7 @@ function PurchaseConfirmation:OnAcceptSettings()
 	tSettings.monPunyLimitPerLevel = PurchaseConfirmation:ExtractSettingAmount(
 		wndSettings:FindChild("PunyAmount"),
 		"monPunyLimitPerLevel",
-		tSettings.monPunyLimitPerLevel)		
+		tSettings.monPunyLimitPerLevel)
 	
 	logexit("OnAcceptSettings")
 end
@@ -543,7 +543,7 @@ function PurchaseConfirmation:PopulateSettingsWindow()
 	logenter("PopulateSettingsWindow")
 	
 	-- Fixed settings
-	if tSettings.bFixedThresholdEnabled ~= nil then	wndSettings:FindChild("FixedEnableButton"):SetCheck(tSettings.bFixedThresholdEnabled) end	
+	if tSettings.bFixedThresholdEnabled ~= nil then	wndSettings:FindChild("FixedEnableButton"):SetCheck(tSettings.bFixedThresholdEnabled) end
 	if tSettings.monFixedThreshold ~= nil then wndSettings:FindChild("FixedAmount"):SetAmount(tSettings.monFixedThreshold, true) end
 
 	-- Empty coffers settings
@@ -584,19 +584,19 @@ function PurchaseConfirmation:ExtractOrRevertSettingNumber(wndField, strName, cu
 		logdebug("ExtractOrRevertSettingNumber", "Field " .. strName .. ": value '" .. newValue .. "' is unchanged")
 	else
 		loginfo("ExtractOrRevertSettingNumber", "Field " .. strName .. ": value '" .. newValue .. "' updated from previous value '" .. currentValue .. "'")
-	end	
+	end
 	return newValue;
 end
 
 -- Extracts an amount-field, and logs if it is changed from currentValue
 function PurchaseConfirmation:ExtractSettingAmount(wndField, strName, currentValue)
 	local newValue = wndField:GetAmount()
-	if newValue == currentValue then		
+	if newValue == currentValue then
 		logdebug("ExtractSettingAmount", "Field " .. tostring(strName) .. ": value '" .. tostring(newValue) .. "' is unchanged")
-	else		
+	else
 		loginfo("ExtractSettingAmount", "Field " .. tostring(strName) .. ": value '" .. tostring(newValue) .. "' updated from previous value '" .. tostring(currentValue) .. "'")
-	end	
-	return newValue	
+	end
+	return newValue
 end
 
 -- Extracts a checkbox-field, and logs if it is changed from currentValue
@@ -606,8 +606,8 @@ function PurchaseConfirmation:ExtractSettingCheckbox(wndField, strName, currentV
 		logdebug("ExtractSettingCheckbox", "Field " .. strName .. ": value '" .. tostring(newValue) .. "' is unchanged")
 	else
 		loginfo("ExtractSettingCheckbox", "Field " .. strName .. ": value '" .. tostring(newValue) .. "' updated from previous value '" .. tostring(currentValue) .. "'")
-	end	
-	return newValue	
+	end
+	return newValue
 end
 
 
