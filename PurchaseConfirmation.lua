@@ -55,6 +55,14 @@ local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (neve
 local VENDOR_ADDON = "Vendor" -- Used when loading/declaring dependencies to Vendor
 local kstrTabBuy = "VendorTab0"
 
+-- Supported currencies
+local seqCurrencies = {
+	{eType = Money.CodeEnumCurrencyType.Credits, 			strTitle = Apollo.GetString("CRB_Credits"), 			strDescription = Apollo.GetString("CRB_Credits_Desc")},
+	{eType = Money.CodeEnumCurrencyType.Renown, 			strTitle = Apollo.GetString("CRB_Renown"), 				strDescription = Apollo.GetString("CRB_Renown_Desc")},
+	{eType = Money.CodeEnumCurrencyType.ElderGems, 			strTitle = Apollo.GetString("CRB_Elder_Gems"), 			strDescription = Apollo.GetString("CRB_Elder_Gems_Desc")},
+	{eType = Money.CodeEnumCurrencyType.Prestige, 			strTitle = Apollo.GetString("CRB_Prestige"), 			strDescription = Apollo.GetString("CRB_Prestige_Desc")},
+	{eType = Money.CodeEnumCurrencyType.CraftingVouchers, 	strTitle = Apollo.GetString("CRB_Crafting_Vouchers"), 	strDescription = Apollo.GetString("CRB_Crafting_Voucher_Desc")}
+}
 
 -- Standard object instance creation
 function PurchaseConfirmation:new(o)
@@ -130,7 +138,9 @@ function PurchaseConfirmation:OnDocLoaded()
 	--[[ HARDCODED DEFAULT SETTINGS ]]
 	
 	-- tSettings will be poulated prior to OnLoad, in OnRestore if saved settings exist
-	tSettings = PurchaseConfirmation:DefaultSettings()
+	if tSettings == nil then
+		tSettings = PurchaseConfirmation:DefaultSettings()
+	end
 	
 	
 	--[[ ADDON REGISTRATION AND FUNCTION INJECTION ]]
@@ -423,9 +433,9 @@ function PurchaseConfirmation:DefaultSettings()
 	local tAllSettings = {}
 
 	-- Initially populate all currency type with "conservative" / generic default values 	
-	for k,_ in Money.CodeEnumCurrencyType.Credits do
+	for _,v in seqCurrencies do
 		local t
-		tAllSettings[k] = t
+		tAllSettings[v.eType] = t
 		
 		-- Fixed
 		t.tFixed = {}
@@ -566,11 +576,51 @@ function PurchaseConfirmation:OnRestore(eType, tSavedData)
 		return 
 	end
 
-	tSettings = tSavedData
+	--[[
+		To gracefully handle changes to the config-structure across different versions of savedata:
+		1) Prepare a set of global default values
+		2) Load up each individual *currently supported* value, and override the default
+		
+		That ensures that "extra" properties (for older configs) in the savedata set 
+		are thrown away, and that new "missing" properties are given default values
+	]]
+	tDefaultSettings = PurchaseConfirmation:DefaultSettings()
 	
-	PurchaseConfirmation:CalculateAverage()
+	if type(tSavedData) == "table" then -- should be outer settings table
+		for _,v in seqCurrencies do
+			if type(tSavedData[v]) == "table" then -- should be individual currency table table
+				local t = tDefaultSettings[v]
+				
+				if type(t.tFixed) == "table" then -- does fixed section exist?
+					if type(t.tFixed.bEnabled) == "boolean" then tDefaultSettings[v].tFixed.bEnabled = t.tFixed.bEnabled end
+					if type(t.tFixed.monThreshold) == "number" then tDefaultSettings[v].tFixed.monThreshold= t.tFixed.monThreshold end
+				end
+				
+				if type(t.tEmptyCoffers) == "table" then
+					if type(t.tEmptyCoffers.bEnabled) == "boolean" then tDefaultSettings[v].tEmptyCoffers.bEnabled = t.tEmptyCoffers.bEnabled end
+					if type(t.tEmptyCoffers.nPercent) == "number" then tDefaultSettings[v].tEmptyCoffers.nPercent = t.tEmptyCoffers.nPercent end
+				end
+				
+				if type(t.tAverage) == "table" then
+					if type(t.tAverage.bEnabled) == "boolean" then tDefaultSettings[v].tAverage.bEnabled = t.tAverage.bEnabled end
+					if type(t.tAverage.monThreshold) == "number" then tDefaultSettings[v].tAverage.monThreshold = t.tAverage.monThreshold end
+					if type(t.tAverage.nPercent) == "number" then tDefaultSettings[v].tAverage.nPercent = t.tAverage.nPercent end
+					if type(t.tAverage.nHistorySize) == "number" then tDefaultSettings[v].tAverage.nHistorySize = t.tAverage.nHistorySize end
+					if type(t.tAverage.seqPriceHistory) == "table" then tDefaultSettings[v].tAverage.seqPriceHistory = t.tAverage.seqPriceHistory end
+				end
+
+				if type(t.tPuny) == "table" then
+					if type(t.tPuny.bEnabled) == "boolean" then tDefaultSettings[v].tPuny.bEnabled = t.tPuny.bEnabled end
+					if type(t.tPuny.monThreshold) == "number" then tDefaultSettings[v].tPuny.monThreshold = t.tPuny.monThreshold end
+				end				
+			end
+		end
+	end
+	
 	logexit("OnRestore")
 end
+
+
 
 -- Addon config button and slash-command invocation
 function PurchaseConfirmation:OnConfigure()
