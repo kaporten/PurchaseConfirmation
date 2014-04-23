@@ -11,7 +11,7 @@
 	If I'm missing license documents or similar disclaimers, please let me know.
 ]]
 
-require "Window"  
+require "Window"
 require "GameLib"
 require "Apollo"
 
@@ -42,9 +42,9 @@ local kstrTabBuy = "VendorTab0"
 -- Standard object instance creation
 function PurchaseConfirmation:new(o)
 	o = o or {}
-    setmetatable(o, self)
-    self.__index = self 
-    return o
+	setmetatable(o, self)
+	self.__index = self 
+	return o
 end
 
 -- Addon registration
@@ -54,7 +54,7 @@ function PurchaseConfirmation:Init()
 	local strConfigureButtonText = "Purchase Conf."
 	local tDependencies = {VENDOR_ADDON, "Gemini:Logging-1.2"}
 	
-    Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
+	Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
  
 -- OnLoad called when addon is allowed to load. 
@@ -69,7 +69,7 @@ function PurchaseConfirmation:OnLoad()
 		}
 	log = Apollo.GetPackage("Gemini:Logging-1.2").tPackage:GetLogger(opt)
 
-    -- load our form file
+	-- load our form file
 	self.xmlDoc = XmlDoc.CreateFromFile("PurchaseConfirmation.xml")
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
 	
@@ -108,7 +108,7 @@ function PurchaseConfirmation:OnDocLoaded()
 	
 	-- Now that forms are loaded, remove XML doc for gc
 	self.xmlDoc = nil
-	  
+
 	
 	--[[ HARDCODED DEFAULT SETTINGS ]]
 	
