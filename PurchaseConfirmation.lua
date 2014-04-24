@@ -52,16 +52,23 @@ local ADDON_NAME = "PurchaseConfirmation"
 local ADDON_VERSION = "0.8"
 local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
 
-local VENDOR_ADDON = "Vendor" -- Used when loading/declaring dependencies to Vendor
+local VENDOR_ADDON_NAME = "Vendor" -- Used when loading/declaring dependencies to Vendor
+local VENDOR_ADDON
 local kstrTabBuy = "VendorTab0"
 
--- Supported currencies
-local seqCurrencies = {
-	{eType = Money.CodeEnumCurrencyType.Credits, 			strTitle = Apollo.GetString("CRB_Credits"), 			strDescription = Apollo.GetString("CRB_Credits_Desc")},
-	{eType = Money.CodeEnumCurrencyType.Renown, 			strTitle = Apollo.GetString("CRB_Renown"), 				strDescription = Apollo.GetString("CRB_Renown_Desc")},
-	{eType = Money.CodeEnumCurrencyType.ElderGems, 			strTitle = Apollo.GetString("CRB_Elder_Gems"), 			strDescription = Apollo.GetString("CRB_Elder_Gems_Desc")},
-	{eType = Money.CodeEnumCurrencyType.Prestige, 			strTitle = Apollo.GetString("CRB_Prestige"), 			strDescription = Apollo.GetString("CRB_Prestige_Desc")},
-	{eType = Money.CodeEnumCurrencyType.CraftingVouchers, 	strTitle = Apollo.GetString("CRB_Crafting_Vouchers"), 	strDescription = Apollo.GetString("CRB_Crafting_Voucher_Desc")}
+--[[
+	Supported currencies
+		eType = currency enum type used by Apollo API
+		strName = hardcoded name for the currency, to be referenced in saved config
+		strTitle = display-title to be used on the left-right settings selection buttons
+		strDescription = description of the currency type -- not used anywhere yet
+]]
+local seqCurrencyTypes = {
+	{eType = Money.CodeEnumCurrencyType.Credits, 			strName = "Credits",		strTitle = Apollo.GetString("CRB_Credits"), 			strDescription = Apollo.GetString("CRB_Credits_Desc")},
+	{eType = Money.CodeEnumCurrencyType.Renown, 			strName = "Renown", 		strTitle = Apollo.GetString("CRB_Renown"), 				strDescription = Apollo.GetString("CRB_Renown_Desc")},
+	{eType = Money.CodeEnumCurrencyType.ElderGems, 			strName = "ElderGems",		strTitle = Apollo.GetString("CRB_Elder_Gems"), 			strDescription = Apollo.GetString("CRB_Elder_Gems_Desc")},
+	{eType = Money.CodeEnumCurrencyType.Prestige, 			strName = "Prestige",		strTitle = Apollo.GetString("CRB_Prestige"), 			strDescription = Apollo.GetString("CRB_Prestige_Desc")},
+	{eType = Money.CodeEnumCurrencyType.CraftingVouchers, 	strName = "CraftingVouchers",	strTitle = Apollo.GetString("CRB_Crafting_Vouchers"), 	strDescription = Apollo.GetString("CRB_Crafting_Voucher_Desc")}
 }
 
 -- Standard object instance creation
@@ -77,7 +84,7 @@ end
 function PurchaseConfirmation:Init()
 	local bHasConfigureFunction = true
 	local strConfigureButtonText = "Purchase Conf."
-	local tDependencies = {VENDOR_ADDON, "Gemini:Logging-1.2"}
+	local tDependencies = {VENDOR_ADDON_NAME, "Gemini:Logging-1.2"}
 	
 	Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
@@ -121,7 +128,7 @@ function PurchaseConfirmation:OnDocLoaded()
 		logerror("OnDocLoaded", "wndConfirmDialog is nil!")
 		return
 	end
-	wndConfirmDialog:Show(false, true)
+	wndConfirmDialog:Show(false, true)	
 
 	wndSettings = Apollo.LoadForm(self.xmlDoc, "SettingsForm", nil, self)
 	if wndSettings == nil then
@@ -130,12 +137,12 @@ function PurchaseConfirmation:OnDocLoaded()
 		return
 	end
 	wndSettings:Show(false, true)
-	
+		
 	-- Now that forms are loaded, remove XML doc for gc
 	self.xmlDoc = nil
 	
 	
-	--[[ HARDCODED DEFAULT SETTINGS ]]
+	--[[ SETTINGS ]]
 	
 	-- tSettings will be poulated prior to OnLoad, in OnRestore if saved settings exist
 	if tSettings == nil then
@@ -149,12 +156,16 @@ function PurchaseConfirmation:OnDocLoaded()
 	Apollo.RegisterSlashCommand("purchaseconfirmation", "OnConfigure", self)
 	Apollo.RegisterSlashCommand("purconf", "OnConfigure", self)
 
+	-- Store reference to Vendor in global
+	VENDOR_ADDON = Apollo.GetAddon(VENDOR_ADDON_NAME)
+	
 	-- Inject own OnBuy function into Vendor addon
-	vendorFinalizeBuy = Apollo.GetAddon(VENDOR_ADDON).FinalizeBuy -- store ref to original function
-	Apollo.GetAddon(VENDOR_ADDON).FinalizeBuy = PurchaseConfirmation.CheckPurchase -- replace Vendors FinalizeBuy with own
+	vendorFinalizeBuy = VENDOR_ADDON.FinalizeBuy -- store ref to original function
+	VENDOR_ADDON.FinalizeBuy = PurchaseConfirmation.CheckPurchase -- replace Vendors FinalizeBuy with own
 	
 	logexit("OnDocLoaded")
 end
+
 
 -----------------------------------------------------------------------------------------------
 -- PurchaseConfirmation Functions
@@ -165,7 +176,7 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 	logenter("CheckPurchase")
 	
 	-- Only execute any checks during purchases (not sales, repairs or buybacks)
-	if not Apollo.GetAddon(VENDOR_ADDON).wndVendor:FindChild(kstrTabBuy):IsChecked() then
+	if not VENDOR_ADDON.wndVendor:FindChild(kstrTabBuy):IsChecked() then
 		loginfo("CheckPurchase", "Not a purchase")
 		PurchaseConfirmation:DelegateToVendor(tItemData)
 		return
@@ -327,7 +338,7 @@ function PurchaseConfirmation:RequestPurchaseConfirmation(tThreshold, tItemData)
 		Probably just more confusing for the user, compared to blocking Vendor 
 		while waiting for approval.
 	]]
-	Apollo.GetAddon(VENDOR_ADDON).wndVendor:Enable(false)
+	VENDOR_ADDON.wndVendor:Enable(false)
 	wndConfirmDialog:ToFront()
 	wndConfirmDialog:Show(true)
 	
@@ -392,7 +403,7 @@ function PurchaseConfirmation:DelegateToVendor(tItemData)
 		return
 	end
 	
-	vendorFinalizeBuy(Apollo.GetAddon(VENDOR_ADDON), tItemData)
+	vendorFinalizeBuy(VENDOR_ADDON, tItemData)
 	logexit("DelegateToVendor")
 end
 
@@ -405,7 +416,7 @@ function PurchaseConfirmation:OnConfirmPurchase()
 	logenter("OnConfirmPurchase")
 	-- Hide dialog and register confirmed purchase
 	wndConfirmDialog:Show(false, true)
-	Apollo.GetAddon(VENDOR_ADDON).wndVendor:Enable(true)
+	VENDOR_ADDON.wndVendor:Enable(true)
 	
 	-- Extract item being purchased, and delegate to Vendor
 	local tItemData = wndConfirmDialog:GetData()
@@ -418,7 +429,7 @@ end
 function PurchaseConfirmation:OnCancelPurchase()
 	logenter("OnCancelPurchase")
 	wndConfirmDialog:Show(false, true)
-	Apollo.GetAddon(VENDOR_ADDON).wndVendor:Enable(true)
+	VENDOR_ADDON.wndVendor:Enable(true)
 	logexit("OnCancelPurchase")
 end
 
@@ -433,7 +444,7 @@ function PurchaseConfirmation:DefaultSettings()
 	local tAllSettings = {}
 
 	-- Initially populate all currency type with "conservative" / generic default values 	
-	for _,v in seqCurrencies do
+	for _,v in seqCurrencyTypes do
 		local t
 		tAllSettings[v.eType] = t
 		
@@ -489,34 +500,45 @@ function PurchaseConfirmation:OnAcceptSettings()
 	-- Hide settings window
 	wndSettings:Show(false, true)
 	
+	tCurrencyType = wndSettings:FindChild("CurrencySelector"):GetData()
+
+	
+	logexit("OnAcceptSettings")
+end
+
+function PurchaseConfirmation:UpdateSettingsModelFromGUI(tCurrency, wndCurrencyConfiguration)
 	-- TODO: Extract current currency selection from GUI, find appropriate tSettings
 	
 	--[[ FIXED THRESHOLD SETTINGS ]]
 	
-	-- Fixed threshold checkbox
+	local wndFixedSection = wndSettings:FindChild("FixedSection")
+	
+	-- Fixed threshold checkbox	
 	tSettings.tFixed.bEnabled = PurchaseConfirmation:ExtractSettingCheckbox(
-		wndSettings:FindChild("FixedSection"):FindChild("FixedEnableButton"),
+		fixedSection:FindChild("EnableButton"),
 		"tFixed.bEnabled",
 		tSettings.tFixed.bEnabled)
 	
 	-- Fixed threshold amount
 	tSettings.tFixed.monThreshold = PurchaseConfirmation:ExtractSettingAmount(
-		wndSettings:FindChild("FixedSection"):FindChild("FixedAmount"),
+		fixedSection:FindChild("Amount"),
 		"tFixed.monThreshold",
 		tSettings.tFixed.monThreshold)
 
 
 	--[[ EMPTY COFFERS SETTINGS ]]
 	
-	-- Empty coffers threshold checkbox
+	local wndEmptyCoffersSection = wndSettings:FindChild("EmptyCoffersSection")
+	
+	-- Empty coffers threshold checkbox	
 	tSettings.tEmptyCoffers.bEnabled = PurchaseConfirmation:ExtractSettingCheckbox(
-		wndSettings:FindChild("EmptyCoffersEnableButton"),
+		wndEmptyCoffersSection:FindChild("EnableButton"),
 		"tEmptyCoffers.bEnabled",
 		tSettings.tEmptyCoffers.bEnabled)
 	
 	-- Empty coffers percentage
 	tSettings.tEmptyCoffers.nPercent = PurchaseConfirmation:ExtractOrRevertSettingNumber(
-		wndSettings:FindChild("EmptyCoffersEditBox"),
+		wndEmptyCoffersSection:FindChild("PercentEditBox"),
 		"tEmptyCoffers.nPercent",
 		tSettings.tEmptyCoffers.nPercent,
 		1, 100)
@@ -524,35 +546,44 @@ function PurchaseConfirmation:OnAcceptSettings()
 	
 	--[[ AVERAGE THRESHOLD SETTINGS ]]
 
+	local wndAverageSection = wndSettings:FindChild("AverageSection")
+	
 	-- Average threshold checkbox
 	tSettings.tAverage.bEnabled = PurchaseConfirmation:ExtractSettingCheckbox(
-		wndSettings:FindChild("AverageEnableButton"),
+		wndAverageSection:FindChild("EnableButton"),
 		"tAverage.bEnabled",
 		tSettings.tAverage.bEnabled)
 
 	-- Average percent number input field
 	tSettings.tAverage.nPercent = PurchaseConfirmation:ExtractOrRevertSettingNumber(
-		wndSettings:FindChild("AveragePercentEditBox"),
+		wndAverageSection:FindChild("PercentEditBox"),
 		"tAverage.nPercent",
 		tSettings.tAverage.nPercent,
 		1, 999)
 
 	-- History size number input field
 	tSettings.tAverage.nHistorySize = PurchaseConfirmation:ExtractOrRevertSettingNumber(
-		wndSettings:FindChild("AverageHistorySizeEditBox"),
+		wndAverageSection:FindChild("HistorySizeEditBox"),
 		"tAverage.nHistorySize",
 		tSettings.tAverage.nHistorySize,
 		1, 999)
-
-
+	
+	
 	--[[ PUNY AMOUNT SETTINGS ]]
 	
+	local wndPunySection = wndSettings:FindChild("PunySection")
+
+	-- Puny threshold checkbox
+	tSettings.tPuny.bEnabled = PurchaseConfirmation:ExtractSettingCheckbox(
+		wndAverageSection:FindChild("EnableButton"),
+		"tPuny.bEnabled",
+		tSettings.tPuny.bEnabled)
+	
+	-- Puny threshold limit (per level)
 	tSettings.tPuny.monThreshold = PurchaseConfirmation:ExtractSettingAmount(
-		wndSettings:FindChild("PunyAmount"),
+		wndPunySection:FindChild("Amount"),
 		"tPuny.monThreshold",
 		tSettings.tPuny.monThreshold)
-	
-	logexit("OnAcceptSettings")
 end
 
 
@@ -587,7 +618,7 @@ function PurchaseConfirmation:OnRestore(eType, tSavedData)
 	tDefaultSettings = PurchaseConfirmation:DefaultSettings()
 	
 	if type(tSavedData) == "table" then -- should be outer settings table
-		for _,v in seqCurrencies do
+		for _,v in seqCurrencyTypes do
 			if type(tSavedData[v]) == "table" then -- should be individual currency table table
 				local t = tDefaultSettings[v]
 				
