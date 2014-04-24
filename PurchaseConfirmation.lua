@@ -64,10 +64,10 @@ local kstrTabBuy = "VendorTab0"
 		strDescription = description of the currency type -- not used anywhere yet
 ]]
 local seqCurrencyTypes = {
-	{eType = Money.CodeEnumCurrencyType.Credits, 			strName = "Credits",		strTitle = Apollo.GetString("CRB_Credits"), 			strDescription = Apollo.GetString("CRB_Credits_Desc")},
-	{eType = Money.CodeEnumCurrencyType.Renown, 			strName = "Renown", 		strTitle = Apollo.GetString("CRB_Renown"), 				strDescription = Apollo.GetString("CRB_Renown_Desc")},
-	{eType = Money.CodeEnumCurrencyType.ElderGems, 			strName = "ElderGems",		strTitle = Apollo.GetString("CRB_Elder_Gems"), 			strDescription = Apollo.GetString("CRB_Elder_Gems_Desc")},
-	{eType = Money.CodeEnumCurrencyType.Prestige, 			strName = "Prestige",		strTitle = Apollo.GetString("CRB_Prestige"), 			strDescription = Apollo.GetString("CRB_Prestige_Desc")},
+	{eType = Money.CodeEnumCurrencyType.Credits, 			strName = "Credits",			strTitle = Apollo.GetString("CRB_Credits"), 			strDescription = Apollo.GetString("CRB_Credits_Desc")},
+	{eType = Money.CodeEnumCurrencyType.Renown, 			strName = "Renown", 			strTitle = Apollo.GetString("CRB_Renown"), 			strDescription = Apollo.GetString("CRB_Renown_Desc")},
+	{eType = Money.CodeEnumCurrencyType.ElderGems, 			strName = "ElderGems",			strTitle = Apollo.GetString("CRB_Elder_Gems"), 		strDescription = Apollo.GetString("CRB_Elder_Gems_Desc")},
+	{eType = Money.CodeEnumCurrencyType.Prestige, 			strName = "Prestige",			strTitle = Apollo.GetString("CRB_Prestige"), 			strDescription = Apollo.GetString("CRB_Prestige_Desc")},
 	{eType = Money.CodeEnumCurrencyType.CraftingVouchers, 	strName = "CraftingVouchers",	strTitle = Apollo.GetString("CRB_Crafting_Vouchers"), 	strDescription = Apollo.GetString("CRB_Crafting_Voucher_Desc")}
 }
 
@@ -137,6 +137,23 @@ function PurchaseConfirmation:OnDocLoaded()
 		return
 	end
 	wndSettings:Show(false, true)
+	
+	for _,v in seqCurrencyTypes do
+		local wndCurrencyControls = Apollo.LoadForm(self.xmlDoc, "CurrencyControlsForm", wndSettings:FindChild("CurrencyControlsArea"), self)
+		if wndCurrencyControls == nil then
+			Apollo.AddAddonErrorText(self, "Could not load the CurrencyControlsForm window for some reason")
+			logerror("OnDocLoaded", "wndCurrencyControls is nil!")
+			return
+		end
+		
+		wndCurrencyControls:Show(false, true)		
+		wndCurrencyControls:SetName("CurrencyControl_" .. v.strName) -- "CurrencyControl_Credits" etc
+		
+		-- Set appropriate currency on amount fields
+		wndCurrencyControls:FindChild("FixedSection"):FindChild("Amount"):SetMoneySystem(v.eType)
+		wndCurrencyControls:FindChild("PunySection"):FindChild("Amount"):SetMoneySystem(v.eType)
+	end
+	
 		
 	-- Now that forms are loaded, remove XML doc for gc
 	self.xmlDoc = nil
@@ -488,8 +505,7 @@ function PurchaseConfirmation:OnCancelSettings()
 	
 	-- Hide settings window, without saving any entered values. 
 	-- Settings GUI will revert to old values on next OnConfigure
-	wndSettings:Show(false, true)
-	wndSettings:ToFront()
+	wndSettings:Show(false, true)	
 	
 	logexit("OnCancelSettings")
 end
@@ -500,18 +516,20 @@ function PurchaseConfirmation:OnAcceptSettings()
 	-- Hide settings window
 	wndSettings:Show(false, true)
 	
-	tCurrencyType = wndSettings:FindChild("CurrencySelector"):GetData()
-
+	for _,v in seqCurrencyTypes do
+		local wnd = wndSettings:FindChild("CurrencyControl_" .. v.strName)
+		local t = tSettings[v.strName]
+		PurchaseConfirmation:UpdateSettingsForCurrency(wnd, t)
+	end
 	
 	logexit("OnAcceptSettings")
 end
 
-function PurchaseConfirmation:UpdateSettingsModelFromGUI(tCurrency, wndCurrencyConfiguration)
-	-- TODO: Extract current currency selection from GUI, find appropriate tSettings
+function PurchaseConfirmation:UpdateSettingsForCurrency(wndCurrencyConfiguration, tCurrency)
 	
 	--[[ FIXED THRESHOLD SETTINGS ]]
 	
-	local wndFixedSection = wndSettings:FindChild("FixedSection")
+	local wndFixedSection = wndCurrencyConfiguration:FindChild("FixedSection")
 	
 	-- Fixed threshold checkbox	
 	tSettings.tFixed.bEnabled = PurchaseConfirmation:ExtractSettingCheckbox(
@@ -528,7 +546,7 @@ function PurchaseConfirmation:UpdateSettingsModelFromGUI(tCurrency, wndCurrencyC
 
 	--[[ EMPTY COFFERS SETTINGS ]]
 	
-	local wndEmptyCoffersSection = wndSettings:FindChild("EmptyCoffersSection")
+	local wndEmptyCoffersSection = wndCurrencyConfiguration:FindChild("EmptyCoffersSection")
 	
 	-- Empty coffers threshold checkbox	
 	tSettings.tEmptyCoffers.bEnabled = PurchaseConfirmation:ExtractSettingCheckbox(
@@ -546,7 +564,7 @@ function PurchaseConfirmation:UpdateSettingsModelFromGUI(tCurrency, wndCurrencyC
 	
 	--[[ AVERAGE THRESHOLD SETTINGS ]]
 
-	local wndAverageSection = wndSettings:FindChild("AverageSection")
+	local wndAverageSection = wndCurrencyConfiguration:FindChild("AverageSection")
 	
 	-- Average threshold checkbox
 	tSettings.tAverage.bEnabled = PurchaseConfirmation:ExtractSettingCheckbox(
@@ -571,7 +589,7 @@ function PurchaseConfirmation:UpdateSettingsModelFromGUI(tCurrency, wndCurrencyC
 	
 	--[[ PUNY AMOUNT SETTINGS ]]
 	
-	local wndPunySection = wndSettings:FindChild("PunySection")
+	local wndPunySection = wndCurrencyConfiguration:FindChild("PunySection")
 
 	-- Puny threshold checkbox
 	tSettings.tPuny.bEnabled = PurchaseConfirmation:ExtractSettingCheckbox(
@@ -619,82 +637,94 @@ function PurchaseConfirmation:OnRestore(eType, tSavedData)
 	
 	if type(tSavedData) == "table" then -- should be outer settings table
 		for _,v in seqCurrencyTypes do
-			if type(tSavedData[v]) == "table" then -- should be individual currency table table
-				local t = tDefaultSettings[v]
+			if type(tSavedData[v.strName]) == "table" then -- should be individual currency table table
+				local t = tDefaultSettings[v.strName]
 				
 				if type(t.tFixed) == "table" then -- does fixed section exist?
-					if type(t.tFixed.bEnabled) == "boolean" then tDefaultSettings[v].tFixed.bEnabled = t.tFixed.bEnabled end
-					if type(t.tFixed.monThreshold) == "number" then tDefaultSettings[v].tFixed.monThreshold= t.tFixed.monThreshold end
+					if type(t.tFixed.bEnabled) == "boolean" then tDefaultSettings[v.strName].tFixed.bEnabled = t.tFixed.bEnabled end
+					if type(t.tFixed.monThreshold) == "number" then tDefaultSettings[v.strName].tFixed.monThreshold= t.tFixed.monThreshold end
 				end
 				
 				if type(t.tEmptyCoffers) == "table" then
-					if type(t.tEmptyCoffers.bEnabled) == "boolean" then tDefaultSettings[v].tEmptyCoffers.bEnabled = t.tEmptyCoffers.bEnabled end
-					if type(t.tEmptyCoffers.nPercent) == "number" then tDefaultSettings[v].tEmptyCoffers.nPercent = t.tEmptyCoffers.nPercent end
+					if type(t.tEmptyCoffers.bEnabled) == "boolean" then tDefaultSettings[v.strName].tEmptyCoffers.bEnabled = t.tEmptyCoffers.bEnabled end
+					if type(t.tEmptyCoffers.nPercent) == "number" then tDefaultSettings[v.strName].tEmptyCoffers.nPercent = t.tEmptyCoffers.nPercent end
 				end
 				
 				if type(t.tAverage) == "table" then
-					if type(t.tAverage.bEnabled) == "boolean" then tDefaultSettings[v].tAverage.bEnabled = t.tAverage.bEnabled end
-					if type(t.tAverage.monThreshold) == "number" then tDefaultSettings[v].tAverage.monThreshold = t.tAverage.monThreshold end
-					if type(t.tAverage.nPercent) == "number" then tDefaultSettings[v].tAverage.nPercent = t.tAverage.nPercent end
-					if type(t.tAverage.nHistorySize) == "number" then tDefaultSettings[v].tAverage.nHistorySize = t.tAverage.nHistorySize end
-					if type(t.tAverage.seqPriceHistory) == "table" then tDefaultSettings[v].tAverage.seqPriceHistory = t.tAverage.seqPriceHistory end
+					if type(t.tAverage.bEnabled) == "boolean" then tDefaultSettings[v.strName].tAverage.bEnabled = t.tAverage.bEnabled end
+					if type(t.tAverage.monThreshold) == "number" then tDefaultSettings[v.strName].tAverage.monThreshold = t.tAverage.monThreshold end
+					if type(t.tAverage.nPercent) == "number" then tDefaultSettings[v.strName].tAverage.nPercent = t.tAverage.nPercent end
+					if type(t.tAverage.nHistorySize) == "number" then tDefaultSettings[v.strName].tAverage.nHistorySize = t.tAverage.nHistorySize end
+					if type(t.tAverage.seqPriceHistory) == "table" then tDefaultSettings[v.strName].tAverage.seqPriceHistory = t.tAverage.seqPriceHistory end
 				end
 
 				if type(t.tPuny) == "table" then
-					if type(t.tPuny.bEnabled) == "boolean" then tDefaultSettings[v].tPuny.bEnabled = t.tPuny.bEnabled end
-					if type(t.tPuny.monThreshold) == "number" then tDefaultSettings[v].tPuny.monThreshold = t.tPuny.monThreshold end
+					if type(t.tPuny.bEnabled) == "boolean" then tDefaultSettings[v.strName].tPuny.bEnabled = t.tPuny.bEnabled end
+					if type(t.tPuny.monThreshold) == "number" then tDefaultSettings[v.strName].tPuny.monThreshold = t.tPuny.monThreshold end
 				end				
 			end
 		end
 	end
 	
+	-- TODO: Add support for loading (but not saving) <0.8-style settings. Can be removed again after a few releases.
+	
 	logexit("OnRestore")
 end
-
 
 
 -- Addon config button and slash-command invocation
 function PurchaseConfirmation:OnConfigure()
 	logenter("OnConfigure")
+	
+	-- Update values on GUI with current settings before showing
 	PurchaseConfirmation:PopulateSettingsWindow()
-	wndSettings:Show(true, true)
+
+	wndSettings:Show(true, true)	
 	wndSettings:ToFront()
+	
 	logexit("OnConfigure")
 end
 
--- Populates the settings window with current configuration values
+-- Populates the settings window with current configuration values (for all currency types)
 function PurchaseConfirmation:PopulateSettingsWindow()
 	logenter("PopulateSettingsWindow")
+		
+	for _,v in seqCurrencyTypes do
+		local wnd = wndSettings:FindChild("CurrencyControl_" .. v.strName)
+		local t = tSettings[v.strName]
+		PurchaseConfirmation:PopulateSettingsWindowForCurrency(wnd, t)
+	end
 	
-	-- TODO: Single settings->Multi supp
-	-- TODO: Drill down into GUI sections, rename elements to "local" names like "EnableButton" etc. No need for the full hierarchy en every gui element name.
+	logexit("PopulateSettingsWindow")
+end
+
+
+-- Populates the currency control form for a single currency-type
+function PurchaseConfirmation:PopulateSettingsWindowForCurrency(wndCurrencyControl, tSettings)
+	logenter("PopulateCurrencyControls")
 	
 	-- Fixed settings
-	local fixedSection = wndSettings:FindChild("FixedSection")
+	local fixedSection = wndCurrencyControl:FindChild("FixedSection")
 	if tSettings.tFixed.bEnabled ~= nil then fixedSection:FindChild("EnableButton"):SetCheck(tSettings.tFixed.bEnabled) end
 	if tSettings.tFixed.monThreshold ~= nil then fixedSection:FindChild("Amount"):SetAmount(tSettings.tFixed.monThreshold, true) end
 
 	-- Empty coffers settings
-	local emptyCoffersSection = wndSettings:FindChild("EmptyCoffersSection")
+	local emptyCoffersSection = wndCurrencyControl:FindChild("EmptyCoffersSection")
 	if tSettings.tEmptyCoffers.bEnabled ~= nil then emptyCoffersSection:FindChild("EnableButton"):SetCheck(tSettings.tEmptyCoffers.bEnabled) end
 	if tSettings.tEmptyCoffers.nPercent ~= nil then emptyCoffersSection:FindChild("PercentEditBox"):SetText(tSettings.tEmptyCoffers.nPercent) end
 	
 	-- Average settings
-	local averageSection = wndSettings:FindChild("AverageSection")
+	local averageSection = wndCurrencyControl:FindChild("AverageSection")
 	if tSettings.tAverage.bEnabled ~= nil then averageSection:FindChild("EnableButton"):SetCheck(tSettings.tAverage.bEnabled) end
 	if tSettings.tAverage.nPercent ~= nil then averageSection:FindChild("PercentEditBox"):SetText(tSettings.tAverage.nPercent) end
 	if tSettings.tAverage.nHistorySize ~= nil then averageSection:FindChild("HistorySizeEditBox"):SetText(tSettings.tAverage.nHistorySize) end
-	--[[ 
-		The sequence of collected amounts (seqPriceHistory) is not populated into the settings GUI.
-		Consider adding this as a tooltip or collapsible window.
-	]]
 	
 	-- Puny settings
-	local punySection = wndSettings:FindChild("PunySection")
+	local punySection = wndCurrencyControl:FindChild("PunySection")
 	if tSettings.tPuny.bEnabled ~=nil then punySection:FindChild("PunySection"):FindChild("EnableButton"):SetCheck(tSettings.tPuny.bEnabled) end
 	if tSettings.tPuny.monThreshold ~=nil then punySection:FindChild("Amount"):SetAmount(tSettings.tPuny.monThreshold, true) end
 	
-	logexit("PopulateSettingsWindow")
+	logexit("PopulateCurrencyControls")
 end
 
 -- Extracts text-field as a number within specified bounts. Reverts text field to currentValue if input value is invalid.
