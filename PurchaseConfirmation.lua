@@ -135,8 +135,10 @@ function PurchaseConfirmation:OnDocLoaded()
 		Apollo.AddAddonErrorText(self, "Could not load the SettingsForm window for some reason")
 		logerror("OnDocLoaded", "wndSettings is nil!")
 		return
-	end
+	end	
 	wndSettings:Show(false, true)
+	wndSettings:FindChild("CurrencySelector"):SetData(seqCurrencyTypes[1])
+	wndSettings:FindChild("CurrencySelector"):FindChild("Name"):SetText(wndSettings:FindChild("CurrencySelector"):GetData().strTitle) -- NB: Title, not Name. Assuming Title is localized.
 	
 	for _,v in seqCurrencyTypes do
 		local wndCurrencyControls = Apollo.LoadForm(self.xmlDoc, "CurrencyControlsForm", wndSettings:FindChild("CurrencyControlsArea"), self)
@@ -604,6 +606,42 @@ function PurchaseConfirmation:UpdateSettingsForCurrency(wndCurrencyConfiguration
 		tSettings.tPuny.monThreshold)
 end
 
+---------------------------------------------------------------------------------------------------
+-- Settings left/right selector
+---------------------------------------------------------------------------------------------------
+
+function PurchaseConfirmation:OnCurrencyLeftButton(wndHandler, wndControl, eMouseButton)
+	tCurrentCurrency = wndHandler:GetData()
+	
+	-- Identify current index in the seqCurrencyType list
+	local idx = 1
+	for k,v in seqCurrencyTypes do
+		if v.eType = tCurrentCurrency.eType then idx = k end
+	end
+	
+	-- Determine next index
+	if idx == #seqCurrencyTypes then
+		idx = 1
+	else
+		idx = idx+1
+	if 	
+end
+
+function PurchaseConfirmation:OnCurrencyRightButton(wndHandler, wndControl, eMouseButton)
+	
+end
+
+function PurchaseConfirmation:UpdateSelectedCurrency(currencyIdx)
+	tCurrencyType = seqCurrencyTypes[currencyIdx]
+	wndSettings:FindChild("CurrencySelector"):SetData(tCurrencyType)
+	wndSettings:FindChild("CurrencySelector"):FindChild("Name"):SetText(tCurrencyType.strTitle) -- NB: Title, not Name. Assuming Title is localized.
+	
+	-- Show/hide appropriate currency config windows
+	for k,v in seqCurrencies do
+		
+	end
+
+end
 
 ---------------------------------------------------------------------------------------------------
 -- Settings save/restore related related functionality
