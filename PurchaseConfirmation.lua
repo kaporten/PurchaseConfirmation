@@ -26,7 +26,7 @@ local log = nil
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
 local ADDON_VERSION = "0.8"
-local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
+local DEBUG_MODE = true -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
 
 local VENDOR_ADDON_NAME = "Vendor" -- Used when loading/declaring dependencies to Vendor
 local VENDOR_BUY_TAB_NAME = "VendorTab0" -- Used to check if the Vendor used to buy or sell etc
@@ -58,7 +58,7 @@ function PurchaseConfirmation:OnLoad()
 	
 	-- GeminiLogger options
 	local opt = {
-		level = "INFO",
+		level = "DEBUG",
 		pattern = "%d %n %c %l - %m",
 		appender = "GeminiConsole"
 	}
@@ -80,15 +80,16 @@ function PurchaseConfirmation:OnLoad()
 		{eType = Money.CodeEnumCurrencyType.Prestige,			strName = "Prestige",			strTitle = Apollo.GetString("CRB_Prestige"),		strDescription = Apollo.GetString("CRB_Prestige_Desc")},
 		{eType = Money.CodeEnumCurrencyType.CraftingVouchers,	strName = "CraftingVouchers",	strTitle = Apollo.GetString("CRB_Crafting_Vouchers"),	strDescription = Apollo.GetString("CRB_Crafting_Voucher_Desc")}
 	}
-	
+	self.currentCurrencyIdx = 1 -- Default, show idx 1 on settings
+		
 	-- tSettings will be poulated prior to OnLoad, in OnRestore if saved settings exist
 	-- If not, set to a clean default
 	if self.tSettings == nil then
-		self.tSettings = PurchaseConfirmation:DefaultSettings()
+		self.tSettings = self:DefaultSettings()
 	end
 
 	-- Store original Vendor function, Inject own version into Vendor addon
-	self.vendorFinalizeBuy = Apollo.GetAddon(VENDOR_ADDON_NAME.FinalizeBuy -- store ref to original function
+	self.vendorFinalizeBuy = Apollo.GetAddon(VENDOR_ADDON_NAME).FinalizeBuy -- store ref to original function
 	Apollo.GetAddon(VENDOR_ADDON_NAME).FinalizeBuy = PurchaseConfirmation.CheckPurchase -- replace Vendors FinalizeBuy with own	
 	
 	-- Ensures an open confirm dialog is closed when leaving vendor range
@@ -99,7 +100,7 @@ function PurchaseConfirmation:OnLoad()
 	Apollo.RegisterSlashCommand("purconf", "OnConfigure", self)
 	
 	-- Chunk-scope ref to self
-	PC = self
+	--PC = self
 	
 	-- Load the XML file and await callback
 	self.xmlDoc = XmlDoc.CreateFromFile("PurchaseConfirmation.xml")
@@ -111,7 +112,7 @@ end
 -- Called when XML doc is fully loaded/parsed. Create and configure forms.
 function PurchaseConfirmation:OnDocLoaded()
 	logenter("OnDocLoaded")
-	
+		
 	-- Check that XML document is properly loaded
 	if self.xmlDoc == nil or not self.xmlDoc:IsLoaded() then
 		Apollo.AddAddonErrorText(self, "XML document was not loaded")
@@ -121,7 +122,7 @@ function PurchaseConfirmation:OnDocLoaded()
 		
 	-- Load confirmation dialog form 
 	self.wndConfirmDialog = Apollo.LoadForm(self.xmlDoc, "ConfirmPurchaseDialogForm", nil, self)
-	if wndConfirmDialog == nil then
+	if self.wndConfirmDialog == nil then
 		Apollo.AddAddonErrorText(self, "Could not load the ConfirmDialog window")
 		logerror("OnDocLoaded", "wndConfirmDialog is nil!")
 		return
@@ -130,7 +131,7 @@ function PurchaseConfirmation:OnDocLoaded()
 
 	-- Load settings dialog form
 	self.wndSettings = Apollo.LoadForm(self.xmlDoc, "SettingsForm", nil, self)
-	if wndSettings == nil then
+	if self.wndSettings == nil then
 		Apollo.AddAddonErrorText(self, "Could not load the SettingsForm window")
 		logerror("OnDocLoaded", "wndSettings is nil!")
 		return
@@ -138,7 +139,7 @@ function PurchaseConfirmation:OnDocLoaded()
 	self.wndSettings:Show(false, true)
 	
 	-- Load settings "individual currency panel" forms, and spawn one for each currency type
-	for _,tCurrency in seqCurrencies do
+	for _,tCurrency in ipairs(self.seqCurrencies) do
 		-- Form reference is loaded into self.seqCurrencies[currencyname].wndPanel
 		tCurrency.wndPanel = Apollo.LoadForm(self.xmlDoc, "CurrencyPanelForm", self.wndSettings:FindChild("CurrencyPanelArea"), self)
 
@@ -163,6 +164,11 @@ function PurchaseConfirmation:OnDocLoaded()
 	-- Now that forms are loaded, remove XML doc for gc
 	self.xmlDoc = nil
 	
+	-- If running debug-mode, warn user (should never make it into production)
+	if DEBUG_MODE == true then
+		Print("Addon '" .. ADDON_NAME .. "' running in debug-mode. Vendor purchases are disabled. Please contact the author if you ever see this, since I probably forgot to disable debug-mode after testing!")
+	end
+	
 	logexit("OnDocLoaded")
 end
 
@@ -172,7 +178,7 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 	
 	-- CheckPurchase is called by Vendor, not PurchaseConfirmation. So "self" targets Vendor.
 	-- Get reference to PurchaseConfirmation addon to use in this Vendor-initialized callstack.	
-	PC.tItemData = tItemData -- Add to addons self for in-game debugging. Not actually used anywhere.
+	self.tItemData = tItemData -- Add to addons self for in-game debugging. Not actually used anywhere.
 
 	
 	--[[ SKIP UNSUPPORTED CASES ]]
@@ -180,22 +186,22 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 	-- Only execute any checks during purchases (not sales, repairs or buybacks)
 	if not Apollo.GetAddon(VENDOR_ADDON_NAME).wndVendor:FindChild(VENDOR_BUY_TAB_NAME):IsChecked() then
 		loginfo("CheckPurchase", "Not a purchase")
-		PurchaseConfirmation:DelegateToVendor(tItemData)
+		self:DelegateToVendor(tItemData)
 		return
 	end
 	
 	-- No itemdata on purchase, somehow... "this should never happen"
 	if not tItemData then
 		logwarn("CheckPurchase", "No tItemData")
-		PurchaseConfirmation:DelegateToVendor(tItemData)
+		self:DelegateToVendor(tItemData)
 		return
 	end
 
 	-- Check if current currency is in supported-list
-	local tCurrency = PurchaseConfirmation:GetSupportedCurrencyByEnum(tItemData.tPriceInfo.eCurrencyType1)
+	local tCurrency = self:GetSupportedCurrencyByEnum(tItemData.tPriceInfo.eCurrencyType1)
 	if tCurrency == nil then
 		loginfo("CheckPurchase", "Unsupported currentTypes " .. tostring(tItemData.tPriceInfo.eCurrencyType1) .. " and " .. tostring(tItemData.tPriceInfo.eCurrencyType2))
-		PurchaseConfirmation:DelegateToVendor(tItemData)
+		self:DelegateToVendor(tItemData)
 		return
 	end
 	
@@ -203,18 +209,18 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 	--[[ CHECK THRESHOLDS ]]
 	
 	-- Extract current purchase price from tItemdata
-	local monPrice = PurchaseConfirmation:GetItemPrice(tItemData)
+	local monPrice = self:GetItemPrice(tItemData)
 	
 	-- Get local ref to currency-specific settings
-	local tSettings = PC.tSettings[tCurrency]
+	local tSettings = self.tSettings[tCurrency]
 	
 	-- Check if price is below puny limit
 	if tSettings.tPuny.bEnabled then
-		local monPunyLimit = PurchaseConfirmation:GetPunyLimit(tSettings)
+		local monPunyLimit = self:GetPunyLimit(tSettings)
 		if monPunyLimit and monPrice < monPunyLimit then
 			-- Price is below puny-limit, delegate to Vendor without adding price to history
 			loginfo("CheckPurchase", "Puny amount " .. monPrice .. " ignored")
-			PurchaseConfirmation:DelegateToVendor(tItemData)
+			self:DelegateToVendor(tItemData)
 			return
 		end
 	end
@@ -229,7 +235,7 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 		},
 		{ -- Empty Coffers threshold config
 			monPrice = monPrice,
-			monThreshold = PurchaseConfirmation:GetEmptyCoffersThreshold(tSettings),
+			monThreshold = self:GetEmptyCoffersThreshold(tSettings),
 			bEnabled = tSettings.tEmptyCoffers.bEnabled,
 			strType = "EmptyCoffers"
 		},
@@ -243,14 +249,14 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 		
 	-- Check all thresholds in order, raise warning for first breach
 	for _,v in ipairs(tThresholds) do
-		if PurchaseConfirmation:IsThresholdBreached(v, tItemData) then 
-			PurchaseConfirmation:RequestPurchaseConfirmation(v, tItemData)
+		if self:IsThresholdBreached(v, tItemData) then 
+			self:RequestPurchaseConfirmation(v, tItemData)
 			return 
 		end
 	end
 	
 	-- No thresholds breached
-	PurchaseConfirmation:ConfirmPurchase(tItemData)
+	self:ConfirmPurchase(tItemData)
 end
 
 -- Empty coffers threshold is a % of the players total credit
@@ -319,7 +325,7 @@ end
 function PurchaseConfirmation:RequestPurchaseConfirmation(tThreshold, tItemData)
 	logenter("RequestPurchaseConfirmation")
 	
-	local wndDialog = PC.wndConfirmDialog		
+	local wndDialog = self.wndConfirmDialog		
 	wndDialog:SetData(tItemData)
 	wndDialog:FindChild("ItemName"):SetText(tItemData.strName)
 	wndDialog:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
@@ -342,11 +348,11 @@ end
 function PurchaseConfirmation:ConfirmPurchase(tItemData)
 	logenter("ConfirmPurchase")
 
-	local monPrice = PurchaseConfirmation:GetItemPrice(tItemData)
+	local monPrice = self:GetItemPrice(tItemData)
 
 	-- Get currency settings
-	local tCurrency = PurchaseConfirmation:GetSupportedCurrencyByEnum(tItemData.tPriceInfo.eCurrencyType1)	
-	local tSettings = PC.tSettings[tCurrency.strName]
+	local tCurrency = self:GetSupportedCurrencyByEnum(tItemData.tPriceInfo.eCurrencyType1)	
+	local tSettings = self.tSettings[tCurrency.strName]
 		
 	-- Add element to end of list
 	if tSettings.tAverage.seqPriceHistory == nil then tSettings.tAverage.seqPriceHistory = {} end
@@ -359,7 +365,7 @@ function PurchaseConfirmation:ConfirmPurchase(tItemData)
 	
 	-- Update the average threshold
 	local oldAverage = tSettings.tAverage.monThreshold
-	local newAverage = PurchaseConfirmation:CalculateAverage(tSettings.tAverage.seqPriceHistory)
+	local newAverage = self:CalculateAverage(tSettings.tAverage.seqPriceHistory)
 	
 	-- Update the current tAverage.monThreshold, so it is ready for next purchase-test
 	newAverage = newAverage * (1+(tSettings.tAverage.nPercent/100)) -- add x% to threshold
@@ -367,7 +373,7 @@ function PurchaseConfirmation:ConfirmPurchase(tItemData)
 	
 	loginfo("ConfirmPurchase", "Updated Average threshold from " .. tostring(oldAverage) .. " to " .. tostring(tSettings.tAverage.monThreshold))
 	
-	PurchaseConfirmation:DelegateToVendor(tItemData)
+	self:DelegateToVendor(tItemData)
 	logenter("ConfirmPurchase")
 end
 
@@ -403,7 +409,7 @@ function PurchaseConfirmation:DelegateToVendor(tItemData)
 	end
 	
 	-- Original vendor function stored on PurchaseConfirmation self
-	PC.vendorFinalizeBuy(Apollo.GetAddon(VENDOR_ADDON_NAME), tItemData)
+	self.vendorFinalizeBuy(Apollo.GetAddon(VENDOR_ADDON_NAME), tItemData)
 	logexit("DelegateToVendor")
 end
 
@@ -417,12 +423,12 @@ function PurchaseConfirmation:OnConfirmPurchase()
 	logenter("OnConfirmPurchase")
 	
 	-- Hide dialog and register confirmed purchase
-	PC.wndConfirmDialog:Show(false, true)
+	self.wndConfirmDialog:Show(false, true)
 	Apollo.GetAddon(VENDOR_ADDON_NAME).wndVendor:Enable(true)
 	
 	-- Extract item being purchased, and delegate to Vendor
-	local tItemData = wndConfirmDialog:GetData()
-	PurchaseConfirmation:ConfirmPurchase(tItemData)
+	local tItemData = self.wndConfirmDialog:GetData()
+	self:ConfirmPurchase(tItemData)
 
 	logexit("OnConfirmPurchase")
 end
@@ -430,15 +436,15 @@ end
 -- when the Cancel button is clicked
 function PurchaseConfirmation:OnCancelPurchase()
 	logenter("OnCancelPurchase")
-	wndConfirmDialog:Show(false, true)
+	self.wndConfirmDialog:Show(false, true)
 	Apollo.GetAddon(VENDOR_ADDON_NAME).wndVendor:Enable(true)
 	logexit("OnCancelPurchase")
 end
 
 -- Locates the supported currency config by its ID (rather than its name). Returns nil if not supported.
 function PurchaseConfirmation:GetSupportedCurrencyByEnum(seqCurrencies, eType)
-	for _,tCurrency in seqCurrencies do
-		if tCurrency.eType = eType then return tCurrency end
+	for _,tCurrency in ipairs(self.seqCurrencies) do
+		if tCurrency.eType == eType then return tCurrency end
 	end
 	return nil
 end
@@ -460,6 +466,7 @@ end
 -- Restore addon config per character. Called by engine when loading UI.
 function PurchaseConfirmation:OnRestore(eType, tSavedData)
 	logenter("OnRestore")
+	
 	if eType ~= GameLib.CodeEnumAddonSaveLevel.Character then 
 		return 
 	end
@@ -469,10 +476,361 @@ function PurchaseConfirmation:OnRestore(eType, tSavedData)
 		Doing a simple assign of tSettings=tSavedData would cause errors when loading
 		settings from previous addon-versions.	
 	]]
-	self.tSettings = PurchaseConfirmation:RestoreSettings(tSavedData)
+	self.tSettings = self:RestoreSettings(tSavedData)
 
 	logexit("OnRestore")
 end
+
+-- Shows the Settings window, after populating it with current data.
+-- Invoked from main Addon list via Configure, or registered slash commands. 
+function PurchaseConfirmation:OnConfigure()
+	logenter("OnConfigure")
+	
+	-- Update values on GUI with current settings before showing
+	self:PopulateSettingsWindow()
+
+	self.wndSettings:Show(true, true)
+	self.wndSettings:ToFront()
+	
+	logexit("OnConfigure")
+end
+
+-- Populates the settings window with current configuration values (for all currency types)
+function PurchaseConfirmation:PopulateSettingsWindow()
+	logenter("PopulateSettingsWindow")
+	
+	-- Loop over all supported currencytypes
+	for _,currencyType in ipairs(self.seqCurrencies) do
+		-- For each one, locate the corresponding window (by name), and populate with current values
+		local wndCurrency = currencyType.wndPanel
+		local tCurrencySettings = self.tSettings[currencyType.strName]
+		self:PopulateSettingsWindowForCurrency(wndCurrency, tCurrencySettings)
+	end
+	
+	logexit("PopulateSettingsWindow")
+end
+
+-- Populates the currency control form for a single currency-type
+function PurchaseConfirmation:PopulateSettingsWindowForCurrency(wndCurrencyControl, tSettings)
+	logenter("PopulateSettingsWindowForCurrency")
+	
+	--[[
+		For each individual field, check if a value exist in tSettings,
+		and set the value in the corresponding UI field.
+	]]
+	
+	-- Fixed settings
+	local fixedSection = wndCurrencyControl:FindChild("FixedSection")
+	if tSettings.tFixed.bEnabled ~= nil then fixedSection:FindChild("EnableButton"):SetCheck(tSettings.tFixed.bEnabled) end
+	if tSettings.tFixed.monThreshold ~= nil then fixedSection:FindChild("Amount"):SetAmount(tSettings.tFixed.monThreshold, true) end
+
+	-- Empty coffers settings
+	local emptyCoffersSection = wndCurrencyControl:FindChild("EmptyCoffersSection")
+	if tSettings.tEmptyCoffers.bEnabled ~= nil then emptyCoffersSection:FindChild("EnableButton"):SetCheck(tSettings.tEmptyCoffers.bEnabled) end
+	if tSettings.tEmptyCoffers.nPercent ~= nil then emptyCoffersSection:FindChild("PercentEditBox"):SetText(tSettings.tEmptyCoffers.nPercent) end
+	
+	-- Average settings
+	local averageSection = wndCurrencyControl:FindChild("AverageSection")
+	if tSettings.tAverage.bEnabled ~= nil then averageSection:FindChild("EnableButton"):SetCheck(tSettings.tAverage.bEnabled) end
+	if tSettings.tAverage.nPercent ~= nil then averageSection:FindChild("PercentEditBox"):SetText(tSettings.tAverage.nPercent) end
+	if tSettings.tAverage.nHistorySize ~= nil then averageSection:FindChild("HistorySizeEditBox"):SetText(tSettings.tAverage.nHistorySize) end
+	
+	-- Puny settings
+	local punySection = wndCurrencyControl:FindChild("PunySection")
+	if tSettings.tPuny.bEnabled ~=nil then punySection:FindChild("PunySection"):FindChild("EnableButton"):SetCheck(tSettings.tPuny.bEnabled) end
+	if tSettings.tPuny.monThreshold ~=nil then punySection:FindChild("Amount"):SetAmount(tSettings.tPuny.monThreshold, true) end
+	
+	logexit("PopulateSettingsWindowForCurrency")
+end
+
+
+-- Restores saved settings into the tSettings structure.
+-- Invoked during game load.
+function PurchaseConfirmation:RestoreSettings(tSavedData)
+	--[[
+		To gracefully handle changes to the config-structure across different versions of savedata:
+		1) Prepare a set of global default values
+		2) Load up each individual *currently supported* value, and override the default
+		
+		That ensures that "extra" properties (for older configs) in the savedata set 
+		are thrown away, and that new "missing" properties are given default values
+	]]
+	tSettings = self:DefaultSettings()
+	
+	if type(tSavedData) == "table" then -- should be outer settings table		
+		for _,v in ipairs(self.seqCurrencies) do
+			if type(tSavedData[v.strName]) == "table" then -- should be individual currency table table
+				local tSaved = tSavedData[v.strName] -- assumed present in default settings
+				local tTarget = tSettings[v.strName]
+				
+				if type(tSaved.tFixed) == "table" then -- does fixed section exist?
+					if type(tSaved.tFixed.bEnabled) == "boolean" then tTarget.tFixed.bEnabled = tSaved.tFixed.bEnabled end
+					if type(tSaved.tFixed.monThreshold) == "number" then tTarget.tFixed.monThreshold = tSaved.tFixed.monThreshold end
+				end
+				
+				if type(tSaved.tEmptyCoffers) == "table" then
+					if type(tSaved.tEmptyCoffers.bEnabled) == "boolean" then tTarget.tEmptyCoffers.bEnabled = tSaved.tEmptyCoffers.bEnabled end
+					if type(tSaved.tEmptyCoffers.nPercent) == "number" then tTarget.tEmptyCoffers.nPercent = tSaved.tEmptyCoffers.nPercent end
+				end
+				
+				if type(tSaved.tAverage) == "table" then
+					if type(tSaved.tAverage.bEnabled) == "boolean" then tTarget.tAverage.bEnabled = tSaved.tAverage.bEnabled end
+					if type(tSaved.tAverage.monThreshold) == "number" then tTarget.tAverage.monThreshold = tSaved.tAverage.monThreshold end
+					if type(tSaved.tAverage.nPercent) == "number" then tTarget.tAverage.nPercent = tSaved.tAverage.nPercent end
+					if type(tSaved.tAverage.nHistorySize) == "number" then tTarget.tAverage.nHistorySize = tSaved.tAverage.nHistorySize end
+					if type(tSaved.tAverage.seqPriceHistory) == "table" then tTarget.tAverage.seqPriceHistory = tSaved.tAverage.seqPriceHistory end
+				end
+
+				if type(tSaved.tPuny) == "table" then
+					if type(tSaved.tPuny.bEnabled) == "boolean" then tTarget.tPuny.bEnabled = tSaved.tPuny.bEnabled end
+					if type(tSaved.tPuny.monThreshold) == "number" then tTarget.tPuny.monThreshold = tSaved.tPuny.monThreshold end
+				end				
+			end
+		end
+	end
+	
+	-- TODO: Add support for loading (but not saving) <0.8-style settings. Can be removed again after a few releases.
+	return tSettings
+end
+
+-- Returns a set of current-version default settings for all currency types
+function PurchaseConfirmation:DefaultSettings()
+
+	-- Contains individual settings for all currency types
+	local tAllSettings = {}
+
+	-- Initially populate all currency type with "conservative" / generic default values 	
+	for _,v in ipairs(self.seqCurrencies) do
+		local t = {}
+		tAllSettings[v.strName] = t
+		
+		-- Fixed
+		t.tFixed = {}
+		t.tFixed.bEnabled = false		-- Fixed threshold disabled
+		t.tFixed.monThreshold = 0		-- No amount configured
+		
+		-- Empty coffers
+		t.tEmptyCoffers = {}
+		t.tEmptyCoffers.bEnabled = true	-- Empty Coffers threshold enabled
+		t.tEmptyCoffers.nPercent = 75	-- Breach at 75% of current avail currency
+		
+		-- Average
+		t.tAverage = {}
+		t.tAverage.bEnabled = true		-- Average threshold enabled
+		t.tAverage.monThreshold = 0		-- Initial calculated average history
+		t.tAverage.nPercent = 75		-- Breach at 75% above average spending
+		t.tAverage.nHistorySize = 25	-- Keep 25 elements in price history
+		t.tAverage.seqPriceHistory = {}	-- Empty list of price elements
+			
+		-- Puny limit
+		t.tPuny = {}
+		t.tPuny.bEnabled = false		-- Puny threshold disabled
+		t.tPuny.monThreshold = 0 		-- No amount configured
+	end
+
+	-- Override default values for Credits with appropriate Credits-only defaults
+	tAllSettings["Credits"].tFixed.bEnabled = true			-- Enable fixed threshold
+	tAllSettings["Credits"].tFixed.monThreshold = 50000		-- 5g
+	tAllSettings["Credits"].tPuny.bEnabled = true			-- Enable puny threshold
+	tAllSettings["Credits"].tFixed.monThreshold = 100		-- 1s (per level)
+
+	return tAllSettings	
+end
+
+-- When the settings window is closed via Cancel, revert all changed values to current config
+function PurchaseConfirmation:OnCancelSettings()
+	logenter("OnCancelSettings")
+	
+	-- Hide settings window, without saving any entered values. 
+	-- Settings GUI will revert to old values on next OnConfigure
+	self.wndSettings:Show(false, true)	
+	
+	logexit("OnCancelSettings")
+end
+
+-- Extracts settings fields one by one, and updates tSettings accordingly.
+function PurchaseConfirmation:OnAcceptSettings()
+	logenter("OnAcceptSettings")
+	
+	-- Hide settings window
+	self.wndSettings:Show(false, true)
+	
+	-- For all currencies, extract UI values into settings
+	for _,v in ipairs(self.seqCurrencies) do
+		self:AcceptSettingsForCurrency(v.wndPanel, self.tSettings[v.strName])
+	end
+	
+	logexit("OnAcceptSettings")
+end
+
+function PurchaseConfirmation:AcceptSettingsForCurrency(wndPanel, tSettings)
+	
+	--[[ FIXED THRESHOLD SETTINGS ]]	
+	
+	local wndFixedSection = wndPanel:FindChild("FixedSection")
+	
+	-- Fixed threshold checkbox	
+	tSettings.tFixed.bEnabled = self:ExtractSettingCheckbox(
+		wndFixedSection:FindChild("EnableButton"),
+		"tFixed.bEnabled",
+		tSettings.tFixed.bEnabled)
+	
+	-- Fixed threshold amount
+	tSettings.tFixed.monThreshold = self:ExtractSettingAmount(
+		wndFixedSection:FindChild("Amount"),
+		"tFixed.monThreshold",
+		tSettings.tFixed.monThreshold)
+
+
+	--[[ EMPTY COFFERS SETTINGS ]]
+	
+	local wndEmptyCoffersSection = wndPanel:FindChild("EmptyCoffersSection")
+	
+	-- Empty coffers threshold checkbox	
+	tSettings.tEmptyCoffers.bEnabled = self:ExtractSettingCheckbox(
+		wndEmptyCoffersSection:FindChild("EnableButton"),
+		"tEmptyCoffers.bEnabled",
+		tSettings.tEmptyCoffers.bEnabled)
+	
+	-- Empty coffers percentage
+	tSettings.tEmptyCoffers.nPercent = self:ExtractOrRevertSettingNumber(
+		wndEmptyCoffersSection:FindChild("PercentEditBox"),
+		"tEmptyCoffers.nPercent",
+		tSettings.tEmptyCoffers.nPercent,
+		1, 100)
+	
+	
+	--[[ AVERAGE THRESHOLD SETTINGS ]]
+
+	local wndAverageSection = wndPanel:FindChild("AverageSection")
+	
+	-- Average threshold checkbox
+	tSettings.tAverage.bEnabled = self:ExtractSettingCheckbox(
+		wndAverageSection:FindChild("EnableButton"),
+		"tAverage.bEnabled",
+		tSettings.tAverage.bEnabled)
+
+	-- Average percent number input field
+	tSettings.tAverage.nPercent = self:ExtractOrRevertSettingNumber(
+		wndAverageSection:FindChild("PercentEditBox"),
+		"tAverage.nPercent",
+		tSettings.tAverage.nPercent,
+		1, 999)
+
+	-- History size number input field
+	tSettings.tAverage.nHistorySize = self:ExtractOrRevertSettingNumber(
+		wndAverageSection:FindChild("HistorySizeEditBox"),
+		"tAverage.nHistorySize",
+		tSettings.tAverage.nHistorySize,
+		1, 999)
+	
+	
+	--[[ PUNY AMOUNT SETTINGS ]]
+	
+	local wndPunySection = wndPanel:FindChild("PunySection")
+
+	-- Puny threshold checkbox
+	tSettings.tPuny.bEnabled = self:ExtractSettingCheckbox(
+		wndAverageSection:FindChild("EnableButton"),
+		"tPuny.bEnabled",
+		tSettings.tPuny.bEnabled)
+	
+	-- Puny threshold limit (per level)
+	tSettings.tPuny.monThreshold = self:ExtractSettingAmount(
+		wndPunySection:FindChild("Amount"),
+		"tPuny.monThreshold",
+		tSettings.tPuny.monThreshold)
+end
+
+-- Extracts text-field as a number within specified bounts. Reverts text field to currentValue if input value is invalid.
+function PurchaseConfirmation:ExtractOrRevertSettingNumber(wndField, strName, currentValue, minValue, maxValue)
+	local newValue = tonumber(wndField:GetText())
+
+	-- Input-value must be parsable as a number
+	if newValue == nil then
+		logwarn("ExtractOrRevertSettingNumber", "Field " .. strName .. ": value '" .. newValue .. "' is not a number, reverting to previous value '" .. currentValue .. "'")
+		wndField:SetText(currentValue)
+		return currentValue
+	end
+	
+	-- Input-value is a number, but must be within specified bounds
+	if newValue < minValue or newValue > maxValue then
+		logwarn("ExtractOrRevertSettingNumber", "Field " .. strName .. ": value '" .. newValue .. "' is not within bounds [" .. minValue .. "-" .. maxValue .. "], reverting to previous value '" .. currentValue .. "'")
+		wndField:SetText(currentValue)
+		return currentValue
+	end
+	
+	-- Input-value is accepted, log if changed or not
+	if newValue == currentValue then
+		logdebug("ExtractOrRevertSettingNumber", "Field " .. strName .. ": value '" .. newValue .. "' is unchanged")
+	else
+		loginfo("ExtractOrRevertSettingNumber", "Field " .. strName .. ": value '" .. newValue .. "' updated from previous value '" .. currentValue .. "'")
+	end
+	return newValue;
+end
+
+-- Extracts an amount-field, and logs if it is changed from currentValue
+function PurchaseConfirmation:ExtractSettingAmount(wndField, strName, currentValue)
+	local newValue = wndField:GetAmount()
+	if newValue == currentValue then
+		logdebug("ExtractSettingAmount", "Field " .. tostring(strName) .. ": value '" .. tostring(newValue) .. "' is unchanged")
+	else
+		loginfo("ExtractSettingAmount", "Field " .. tostring(strName) .. ": value '" .. tostring(newValue) .. "' updated from previous value '" .. tostring(currentValue) .. "'")
+	end
+	return newValue
+end
+
+-- Extracts a checkbox-field, and logs if it is changed from currentValue
+function PurchaseConfirmation:ExtractSettingCheckbox(wndField, strName, currentValue)
+	local newValue = wndField:IsChecked()
+	if newValue == currentValue then
+		logdebug("ExtractSettingCheckbox", "Field " .. strName .. ": value '" .. tostring(newValue) .. "' is unchanged")
+	else
+		loginfo("ExtractSettingCheckbox", "Field " .. strName .. ": value '" .. tostring(newValue) .. "' updated from previous value '" .. tostring(currentValue) .. "'")
+	end
+	return newValue
+end
+
+
+---------------------------------------------------------------------------------------------------
+-- Settings left/right selector
+---------------------------------------------------------------------------------------------------
+
+function PurchaseConfirmation:OnCurrencyLeftButton(wndHandler, wndControl, eMouseButton)
+	-- Determine next index. Bump one down, loop back to maxindex if bottom reached
+	if self.currentCurrencyIdx <= 1 then
+		self.currentCurrencyIdx = #self.seqCurrencies
+	else
+		self.currentCurrencyIdx = self.currentCurrencyIdx-1
+	end
+	
+	self:ChangeShownCurrency(self.currentCurrencyIdx)
+end
+
+function PurchaseConfirmation:OnCurrencyRightButton(wndHandler, wndControl, eMouseButton)
+	
+	-- Determine next index. Bump one down, loop back to maxindex if bottom reached
+	if self.currentCurrencyIdx >= #self.seqCurrencies then
+		self.currentCurrencyIdx = 1
+	else
+		self.currentCurrencyIdx = self.currentCurrencyIdx +1
+	end
+	
+	self:ChangeShownCurrency(self.currentCurrencyIdx)
+end
+
+function PurchaseConfirmation:ChangeShownCurrency(currencyIdx)
+	for k,v in ipairs(self.seqCurrencies) do
+		if k == currencyIdx then
+			self.wndSettings:FindChild("CurrencySelector"):SetData(v)
+			self.wndSettings:FindChild("CurrencySelector"):FindChild("Name"):SetText(v.strTitle) -- NB: Title, not Name. Assuming Title is localized.
+			v.wndPanel:Show(true, true)
+		else
+			v.wndPanel:Show(false, true)
+		end
+	end
+end
+
 
 
 -----------------------------------------------------------------------------------------------
@@ -523,3 +881,5 @@ end
 -----------------------------------------------------------------------------------------------
 local PurchaseConfirmationInst = PurchaseConfirmation:new()
 PurchaseConfirmationInst:Init()
+
+

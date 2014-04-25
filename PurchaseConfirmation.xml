@@ -77,10 +77,10 @@
                 </Control>
             </Control>
             <Control Class="Button" Base="CRB_Basekit:kitBtn_Metal_LargeGreen" Font="CRB_Button" ButtonType="PushButton" RadioGroup="" LAnchorPoint="1" LAnchorOffset="-280" TAnchorPoint="1" TAnchorOffset="-83" RAnchorPoint="1" RAnchorOffset="-160" BAnchorPoint="1" BAnchorOffset="-35" DT_VCENTER="1" DT_CENTER="1" Name="AcceptButton" BGColor="ffffffff" TextColor="ffffffff" NewControlDepth="2" WindowSoundTemplate="TogglePhys02" TextId="CRB_Accept" Text="" TooltipColor="" NormalTextColor="UI_BtnTextGreenNormal" PressedTextColor="UI_BtnTextGreenPressed" FlybyTextColor="UI_BtnTextGreenFlyby" PressedFlybyTextColor="UI_BtnTextGreenPressedFlyby" DisabledTextColor="UI_BtnTextRedDisabled" NewWindowDepth="1">
-                <Event Name="ButtonSignal" Function="OnConfirmPurchase"/>
+                <Event Name="ButtonSignal" Function="OnAcceptSettings"/>
             </Control>
             <Control Class="Button" Base="CRB_Basekit:kitBtn_Metal_LargeRed" Font="CRB_Button" ButtonType="PushButton" RadioGroup="" LAnchorPoint="1" LAnchorOffset="-160" TAnchorPoint="1" TAnchorOffset="-83" RAnchorPoint="1" RAnchorOffset="-40" BAnchorPoint="1" BAnchorOffset="-35" DT_VCENTER="1" DT_CENTER="1" Name="CancelButton" BGColor="ffffffff" TextColor="ffffffff" NewControlDepth="2" WindowSoundTemplate="TogglePhys03" TextId="Cancel" Text="" TooltipColor="" NormalTextColor="UI_BtnTextRedNormal" PressedTextColor="UI_BtnTextRedPressed" FlybyTextColor="UI_BtnTextRedFlyby" PressedFlybyTextColor="UI_BtnTextGreenRedFlyby" DisabledTextColor="UI_BtnTextRedDisabled" NewWindowDepth="1">
-                <Event Name="ButtonSignal" Function="OnCancelPurchase"/>
+                <Event Name="ButtonSignal" Function="OnCancelSettings"/>
             </Control>
         </Control>
     </Form>
