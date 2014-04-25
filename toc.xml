@@ -5,7 +5,6 @@
     <Script Name="libs/GeminiLogging-1.2/GeminiLogging.lua"/>
     <!-- Addon itself -->
     <Script Name="PurchaseConfirmation.lua"/>
-    <Script Name="DialogControl.lua"/>
-    <Script Name="SettingsControl.lua"/>
+    <Script Name="Settings.lua"/>
     <Form Name="PurchaseConfirmation.xml"/>
 </Addon>

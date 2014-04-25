@@ -31,7 +31,6 @@ function PurchaseConfirmation:PopulateSettingsWindow()
 	logexit("PopulateSettingsWindow")
 end
 
-
 -- Populates the currency control form for a single currency-type
 function PurchaseConfirmation:PopulateSettingsWindowForCurrency(wndCurrencyControl, tSettings)
 	logenter("PopulateSettingsWindowForCurrency")
@@ -80,7 +79,7 @@ function PurchaseConfirmation:RestoreSettings(tSavedData)
 	tSettings = PurchaseConfirmation:DefaultSettings()
 	
 	if type(tSavedData) == "table" then -- should be outer settings table
-		for _,v in seqCurrencyTypes do
+		for _,v in self.seqCurrencies do
 			if type(tSavedData[v.strName]) == "table" then -- should be individual currency table table
 				local t = tSettings[v.strName] -- assumed present in default settings
 				
@@ -121,7 +120,7 @@ function PurchaseConfirmation:DefaultSettings()
 	local tAllSettings = {}
 
 	-- Initially populate all currency type with "conservative" / generic default values 	
-	for _,v in seqCurrencyTypes do
+	for _,v in self.seqCurrencies do
 		local t
 		tAllSettings[v.eType] = t
 		
@@ -150,10 +149,10 @@ function PurchaseConfirmation:DefaultSettings()
 	end
 
 	-- Override default values for Credits with appropriate Credits-only defaults
-	tAllSettings[Money.CodeEnumCurrencyType.Credits].tFixed.bEnabled = true			-- Enable fixed threshold
-	tAllSettings[Money.CodeEnumCurrencyType.Credits].tFixed.monThreshold = 50000	-- 5g
-	tAllSettings[Money.CodeEnumCurrencyType.Credits].tPuny.bEnabled = true			-- Enable puny threshold
-	tAllSettings[Money.CodeEnumCurrencyType.Credits].tFixed.monThreshold = 100		-- 1s (per level)
+	tAllSettings["Credits"].tFixed.bEnabled = true			-- Enable fixed threshold
+	tAllSettings["Credits"].tFixed.monThreshold = 50000		-- 5g
+	tAllSettings["Credits"].tPuny.bEnabled = true			-- Enable puny threshold
+	tAllSettings["Credits"].tFixed.monThreshold = 100		-- 1s (per level)
 
 	return tAllSettings	
 end
@@ -366,4 +365,3 @@ function PurchaseConfirmation:ChangeShownCurrency(currencyIdx)
 		end
 	end
 end
-
