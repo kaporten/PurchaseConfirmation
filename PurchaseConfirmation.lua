@@ -31,11 +31,6 @@ local DEBUG_MODE = true -- Debug mode = never actually delegate to Vendor (never
 local VENDOR_ADDON_NAME = "Vendor" -- Used when loading/declaring dependencies to Vendor
 local VENDOR_BUY_TAB_NAME = "VendorTab0" -- Used to check if the Vendor used to buy or sell etc
 
--- Reference to the PurchaseConfirmation addon itself. 
--- Used by Vendor-injected methods which cannot refer to self (since self is Vendor)
-local PC = nil
-
-
 -- Standard object instance creation
 function PurchaseConfirmation:new(o)
 	o = o or {}
@@ -73,8 +68,8 @@ function PurchaseConfirmation:OnLoad()
 			strDescription = description of the currency type -- not used anywhere yet
 			wndPanel = handle to settings window panel for this currency, to be populated in OnDocLoaded
 	]]
-	self.seqCurrencies = {
-		{eType = Money.CodeEnumCurrencyType.Credits,			strName = "Credits",			strTitle = Apollo.GetString("CRB_Credits"),		strDescription = Apollo.GetString("CRB_Credits_Desc")},
+	self.seqCurrencies = {																		-- avoid buggy #CRB_Credits#
+		{eType = Money.CodeEnumCurrencyType.Credits,			strName = "Credits",			strTitle = "Credits",										strDescription = Apollo.GetString("CRB_Credits_Desc")},
 		{eType = Money.CodeEnumCurrencyType.Renown,				strName = "Renown",				strTitle = Apollo.GetString("CRB_Renown"),		strDescription = Apollo.GetString("CRB_Renown_Desc")},
 		{eType = Money.CodeEnumCurrencyType.ElderGems,			strName = "ElderGems",			strTitle = Apollo.GetString("CRB_Elder_Gems"),		strDescription = Apollo.GetString("CRB_Elder_Gems_Desc")},
 		{eType = Money.CodeEnumCurrencyType.Prestige,			strName = "Prestige",			strTitle = Apollo.GetString("CRB_Prestige"),		strDescription = Apollo.GetString("CRB_Prestige_Desc")},
@@ -98,9 +93,6 @@ function PurchaseConfirmation:OnLoad()
 	-- Slash commands to manually open the settings window
 	Apollo.RegisterSlashCommand("purchaseconfirmation", "OnConfigure", self)
 	Apollo.RegisterSlashCommand("purconf", "OnConfigure", self)
-	
-	-- Chunk-scope ref to self
-	--PC = self
 	
 	-- Load the XML file and await callback
 	self.xmlDoc = XmlDoc.CreateFromFile("PurchaseConfirmation.xml")
@@ -166,7 +158,7 @@ function PurchaseConfirmation:OnDocLoaded()
 	
 	-- If running debug-mode, warn user (should never make it into production)
 	if DEBUG_MODE == true then
-		Print("Addon '" .. ADDON_NAME .. "' running in debug-mode. Vendor purchases are disabled. Please contact the author if you ever see this, since I probably forgot to disable debug-mode after testing!")
+		Print("Addon '" .. ADDON_NAME .. "' running in debug-mode. Vendor purchases are disabled. Please contact the author (porten@gmail.com or via Curse) if you ever see this, since I probably forgot to disable debug-mode before releasing. For shame :(")
 	end
 	
 	logexit("OnDocLoaded")
@@ -410,7 +402,7 @@ function PurchaseConfirmation:DelegateToVendor(tItemData)
 	
 	logdebug("DelegateToVendor", "debugMode=" .. tostring(DEBUG_MODE))
 	if DEBUG_MODE == true then
-		Print("PURCHASE CONFIRMATION DEBUG MODE, SKIPPING ACTUAL PURCHASE")
+		Print("PurchaseConfirmation: purchase ignored!")
 		return
 	end
 	

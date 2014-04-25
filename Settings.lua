@@ -189,7 +189,7 @@ function PurchaseConfirmation:DefaultSettings()
 	tAllSettings["Credits"].tFixed.bEnabled = true			-- Enable fixed threshold
 	tAllSettings["Credits"].tFixed.monThreshold = 50000		-- 5g
 	tAllSettings["Credits"].tPuny.bEnabled = true			-- Enable puny threshold
-	tAllSettings["Credits"].tFixed.monThreshold = 100		-- 1s (per level)
+	tAllSettings["Credits"].tPuny.monThreshold = 100		-- 1s (per level)
 	
 	--[[
 		Set a "suitable" initial average threshold for some currencies.
