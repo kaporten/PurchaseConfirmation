@@ -190,6 +190,18 @@ function PurchaseConfirmation:DefaultSettings()
 	tAllSettings["Credits"].tFixed.monThreshold = 50000		-- 5g
 	tAllSettings["Credits"].tPuny.bEnabled = true			-- Enable puny threshold
 	tAllSettings["Credits"].tFixed.monThreshold = 100		-- 1s (per level)
+	
+	--[[
+		Set a "suitable" initial average threshold for some currencies.
+		These initial averages are set to low-tier item purchases. The very first confirmed
+		purchase will be added to the price history, and a new proper average will be
+		calculated.
+		Since this "purchase" does not exist in the price history, it will not be part of
+		future calculations.
+	]]
+	tAllSettings["Credits"].tAverage.monThreshold = 1000 -- 10 silver
+	tAllSettings["Prestige"].tAverage.monThreshold = 100 -- 100 prestige
+	tAllSettings["Renown"].tAverage.monThreshold = 500 -- 500 renown
 
 	return tAllSettings	
 end
