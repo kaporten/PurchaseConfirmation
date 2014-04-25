@@ -26,7 +26,7 @@ local log = nil
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
 local ADDON_VERSION = {0, 8, 0} -- major, minor, bugfix
-local DEBUG_MODE = true -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
+local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
 
 local VENDOR_ADDON_NAME = "Vendor" -- Used when loading/declaring dependencies to Vendor
 local VENDOR_BUY_TAB_NAME = "VendorTab0" -- Used to check if the Vendor used to buy or sell etc
