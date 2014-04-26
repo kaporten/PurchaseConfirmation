@@ -25,8 +25,11 @@ local log = nil
  
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = {0, 8, 0} -- major, minor, bugfix
+local ADDON_VERSION = {0, 8, 1} -- major, minor, bugfix
+
+-- Should be false/"ERROR" for release builds
 local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
+local LOG_LEVEL = "ERROR" -- Only log errors, not info/debug/warn
 
 local VENDOR_ADDON_NAME = "Vendor" -- Used when loading/declaring dependencies to Vendor
 local VENDOR_BUY_TAB_NAME = "VendorTab0" -- Used to check if the Vendor used to buy or sell etc
@@ -53,7 +56,7 @@ function PurchaseConfirmation:OnLoad()
 	
 	-- GeminiLogger options
 	local opt = {
-		level = "INFO",
+		level = LOG_LEVEL,
 		pattern = "%d %n %c %l - %m",
 		appender = "GeminiConsole"
 	}
