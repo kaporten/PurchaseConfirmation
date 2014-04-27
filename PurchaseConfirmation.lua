@@ -25,7 +25,7 @@ local log = nil
  
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = {0, 8, 1} -- major, minor, bugfix
+local ADDON_VERSION = {0, 8, 2} -- major, minor, bugfix
 
 -- Should be false/"ERROR" for release builds
 local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
@@ -68,16 +68,16 @@ function PurchaseConfirmation:OnLoad()
 		Supported currencies. Fields:
 			eType = currency enum type used by Apollo API
 			strName = hardcoded name for the currency, to be referenced in saved config (to disconnect from enum ordering)
-			strTitle = display-title to be used on the left-right settings selection buttons
+			strDisplay = display-title to be used on the left-right settings selection buttons
 			strDescription = description of the currency type -- not used anywhere yet
 			wndPanel = handle to settings window panel for this currency, to be populated in OnDocLoaded
 	]]
 	self.seqCurrencies = {																		-- avoid buggy #CRB_Credits#
-		{eType = Money.CodeEnumCurrencyType.Credits,			strName = "Credits",			strTitle = "Credits",										strDescription = Apollo.GetString("CRB_Credits_Desc")},
-		{eType = Money.CodeEnumCurrencyType.Renown,				strName = "Renown",				strTitle = Apollo.GetString("CRB_Renown"),		strDescription = Apollo.GetString("CRB_Renown_Desc")},
-		{eType = Money.CodeEnumCurrencyType.ElderGems,			strName = "ElderGems",			strTitle = Apollo.GetString("CRB_Elder_Gems"),		strDescription = Apollo.GetString("CRB_Elder_Gems_Desc")},
-		{eType = Money.CodeEnumCurrencyType.Prestige,			strName = "Prestige",			strTitle = Apollo.GetString("CRB_Prestige"),		strDescription = Apollo.GetString("CRB_Prestige_Desc")},
-		{eType = Money.CodeEnumCurrencyType.CraftingVouchers,	strName = "CraftingVouchers",	strTitle = Apollo.GetString("CRB_Crafting_Vouchers"),	strDescription = Apollo.GetString("CRB_Crafting_Voucher_Desc")}
+		{eType = Money.CodeEnumCurrencyType.Credits,			strName = "Credits",			strDisplay = "Credits",		strDescription = Apollo.GetString("CRB_Credits_Desc")},
+		{eType = Money.CodeEnumCurrencyType.Renown,				strName = "Renown",				strDisplay = "Renown",		strDescription = Apollo.GetString("CRB_Renown_Desc")},
+		{eType = Money.CodeEnumCurrencyType.Prestige,			strName = "Prestige",			strDisplay = "Prestige",	strDescription = Apollo.GetString("CRB_Prestige_Desc")},
+		{eType = Money.CodeEnumCurrencyType.CraftingVouchers,	strName = "CraftingVouchers",	strDisplay = "Crafting",	strDescription = Apollo.GetString("CRB_Crafting_Voucher_Desc")},
+		{eType = Money.CodeEnumCurrencyType.ElderGems,			strName = "ElderGems",			strDisplay = "Elder Gems",	strDescription = Apollo.GetString("CRB_Elder_Gems_Desc")},
 	}
 	self.currentCurrencyIdx = 1 -- Default, show idx 1 on settings
 		
@@ -134,17 +134,29 @@ function PurchaseConfirmation:OnDocLoaded()
 	end	
 	self.wndSettings:Show(false, true)
 	
-	-- Load settings "individual currency panel" forms, and spawn one for each currency type
-	for _,tCurrency in ipairs(self.seqCurrencies) do
-		-- Form reference is loaded into self.seqCurrencies[currencyname].wndPanel
+	
+	for i,tCurrency in ipairs(self.seqCurrencies) do
+		-- Set text on header button (size must match actual button configuration!)
+		local btn = self.wndSettings:FindChild("CurrencyBtn" .. i)
+		btn:SetText(tCurrency.strDisplay)
+		btn:SetData(tCurrency)
+	
+		-- Load "individual currency panel" settings forms, and spawn one for each currency type
 		tCurrency.wndPanel = Apollo.LoadForm(self.xmlDoc, "CurrencyPanelForm", self.wndSettings:FindChild("CurrencyPanelArea"), self)
 
 		if tCurrency.wndPanel == nil then
 			Apollo.AddAddonErrorText(self, "Could not load the CurrencyPanelForm window")
 			logerror("OnDocLoaded", "wndPanel is nil!")
 			return
-		end		
-		tCurrency.wndPanel:Show(false, true)				
+		end
+		
+		if (i == 1) then		
+			tCurrency.wndPanel:Show(true, true)
+			self.wndSettings:FindChild("CurrencySelectorSection"):SetRadioSelButton("PurchaseConfirmation_CurrencySelection", btn)
+		else	
+			tCurrency.wndPanel:Show(false, true)
+		end
+				
 		tCurrency.wndPanel:SetName("CurrencyPanel_" .. tCurrency.strName) -- "CurrencyPanel_Credits" etc.
 		
 		-- Set appropriate currency type on amount fields
@@ -153,9 +165,7 @@ function PurchaseConfirmation:OnDocLoaded()
 		logdebug("OnDocLoaded", "Configured currency-settings for '" .. tostring(tCurrency.strName) .. "' (" .. tostring(tCurrency.eType) .. ")")
 	end
 		
-	-- Set initial selection in the CurrencySelector to first-hit in the seqCurrencies list
-	self.wndSettings:FindChild("CurrencySelector"):SetData(self.seqCurrencies[1])
-	self.wndSettings:FindChild("CurrencySelector"):FindChild("Name"):SetText(self.wndSettings:FindChild("CurrencySelector"):GetData().strTitle) -- NB: Title, not Name. Assuming Title is localized.
+	--self.wndSettings:FindChild("CurrencySelector"):FindChild("Name"):SetText(self.wndSettings:FindChild("CurrencySelector"):GetData().strDisplay) -- NB: Display, not Name. Assuming Display is localized.
 	
 	-- Now that forms are loaded, remove XML doc for gc
 	self.xmlDoc = nil
@@ -527,7 +537,6 @@ end
 function logexit(strFuncname)
 	logdebug(strFuncname, "Exit method")
 end
-
 
 -----------------------------------------------------------------------------------------------
 -- PurchaseConfirmation Instance

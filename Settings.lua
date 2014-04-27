@@ -11,9 +11,9 @@ function PurchaseConfirmation:OnConfigure()
 	
 	-- Update values on GUI with current settings before showing
 	self:PopulateSettingsWindow()
+	self:UpdateBalance()
 
 	self.wndSettings:Show(true, true)
-	self:ShowCurrencySettings(self.currentCurrencyIdx)
 	self.wndSettings:ToFront()
 	
 	logexit("OnConfigure")
@@ -23,14 +23,19 @@ end
 function PurchaseConfirmation:PopulateSettingsWindow()
 	logenter("PopulateSettingsWindow")
 	
-	-- Loop over all supported currencytypes
+	-- Loop over all supported currencytypes, populate each one with current settings
 	for _,currencyType in ipairs(self.seqCurrencies) do
-		-- For each one, locate the corresponding window (by name), and populate with current values
 		local wndCurrency = currencyType.wndPanel
 		local tCurrencySettings = self.tSettings[currencyType.strName]
 		self:PopulateSettingsWindowForCurrency(wndCurrency, tCurrencySettings)
 	end
-	
+end
+
+function PurchaseConfirmation:UpdateBalance()
+	-- Find checked (displayed) currency type, update balance window
+	local tCurrency = self.wndSettings:FindChild("CurrencySelectorSection"):GetRadioSelButton("PurchaseConfirmation_CurrencySelection"):GetData()
+	self.wndSettings:FindChild("Balance"):SetMoneySystem(tCurrency.eType)
+	self.wndSettings:FindChild("CurrentBalanceSection"):FindChild("Balance"):SetAmount(GameLib.GetPlayerCurrency(tCurrency.eType):GetAmount(), false)
 	logexit("PopulateSettingsWindow")
 end
 
@@ -57,7 +62,6 @@ function PurchaseConfirmation:PopulateSettingsWindowForCurrency(wndCurrencyContr
 	local averageSection = wndCurrencyControl:FindChild("AverageSection")
 	if tSettings.tAverage.bEnabled ~= nil then averageSection:FindChild("EnableButton"):SetCheck(tSettings.tAverage.bEnabled) end
 	if tSettings.tAverage.nPercent ~= nil then averageSection:FindChild("PercentEditBox"):SetText(tSettings.tAverage.nPercent) end
-	if tSettings.tAverage.nHistorySize ~= nil then averageSection:FindChild("HistorySizeEditBox"):SetText(tSettings.tAverage.nHistorySize) end
 	
 	-- Puny settings
 	local punySection = wndCurrencyControl:FindChild("PunySection")
@@ -169,7 +173,7 @@ function PurchaseConfirmation:DefaultSettings()
 		-- Empty coffers
 		t.tEmptyCoffers = {}
 		t.tEmptyCoffers.bEnabled = true	-- Empty Coffers threshold enabled
-		t.tEmptyCoffers.nPercent = 75	-- Breach at 75% of current avail currency
+		t.tEmptyCoffers.nPercent = 50	-- Breach at 50% of current avail currency
 		
 		-- Average
 		t.tAverage = {}
@@ -189,7 +193,9 @@ function PurchaseConfirmation:DefaultSettings()
 	tAllSettings["Credits"].tFixed.bEnabled = true			-- Enable fixed threshold
 	tAllSettings["Credits"].tFixed.monThreshold = 50000		-- 5g
 	tAllSettings["Credits"].tPuny.bEnabled = true			-- Enable puny threshold
-	tAllSettings["Credits"].tPuny.monThreshold = 100		-- 1s (per level)
+	tAllSettings["Credits"].tPuny.monThreshold = 2500		-- 25s
+	
+	
 	
 	--[[
 		Set a "suitable" initial average threshold for some currencies.
@@ -284,15 +290,8 @@ function PurchaseConfirmation:AcceptSettingsForCurrency(wndPanel, tSettings)
 		wndAverageSection:FindChild("PercentEditBox"),
 		"tAverage.nPercent",
 		tSettings.tAverage.nPercent,
-		1, 999)
+		1, 100)
 
-	-- History size number input field
-	tSettings.tAverage.nHistorySize = self:ExtractOrRevertSettingNumber(
-		wndAverageSection:FindChild("HistorySizeEditBox"),
-		"tAverage.nHistorySize",
-		tSettings.tAverage.nHistorySize,
-		1, 999)
-	
 	
 	--[[ PUNY AMOUNT SETTINGS ]]
 	
@@ -313,11 +312,12 @@ end
 
 -- Extracts text-field as a number within specified bounts. Reverts text field to currentValue if input value is invalid.
 function PurchaseConfirmation:ExtractOrRevertSettingNumber(wndField, strName, currentValue, minValue, maxValue)
-	local newValue = tonumber(wndField:GetText())
+	local textValue = wndField:GetText()
+	local newValue = tonumber(textValue)
 
 	-- Input-value must be parsable as a number
 	if newValue == nil then
-		logwarn("ExtractOrRevertSettingNumber", "Field " .. strName .. ": value '" .. newValue .. "' is not a number, reverting to previous value '" .. currentValue .. "'")
+		logwarn("ExtractOrRevertSettingNumber", "Field " .. strName .. ": value '" .. textValue .. "' is not a number, reverting to previous value '" .. currentValue .. "'")
 		wndField:SetText(currentValue)
 		return currentValue
 	end
@@ -362,40 +362,20 @@ end
 
 
 ---------------------------------------------------------------------------------------------------
--- Settings left/right selector
+-- Currency tab selection
 ---------------------------------------------------------------------------------------------------
 
-function PurchaseConfirmation:OnCurrencyLeftButton(wndHandler, wndControl, eMouseButton)
-	-- Determine next index. Bump one down, loop back to maxindex if bottom reached
-	if self.currentCurrencyIdx <= 1 then
-		self.currentCurrencyIdx = #self.seqCurrencies
-	else
-		self.currentCurrencyIdx = self.currentCurrencyIdx-1
-	end
-	
-	self:ShowCurrencySettings(self.currentCurrencyIdx)
-end
-
-function PurchaseConfirmation:OnCurrencyRightButton(wndHandler, wndControl, eMouseButton)
-	
-	-- Determine next index. Bump one down, loop back to maxindex if bottom reached
-	if self.currentCurrencyIdx >= #self.seqCurrencies then
-		self.currentCurrencyIdx = 1
-	else
-		self.currentCurrencyIdx = self.currentCurrencyIdx +1
-	end
-	
-	self:ShowCurrencySettings(self.currentCurrencyIdx)
-end
-
-function PurchaseConfirmation:ShowCurrencySettings(currencyIdx)
-	for k,v in ipairs(self.seqCurrencies) do
-		if k == currencyIdx then
-			self.wndSettings:FindChild("CurrencySelector"):SetData(v)
-			self.wndSettings:FindChild("CurrencySelector"):FindChild("Name"):SetText(v.strTitle) -- NB: Title, not Name. Assuming Title is localized.
+function PurchaseConfirmation:OnCurrencySelection(wndHandler, wndControl)
+	logenter("OnCurrencySelection")
+	local tCurrency = wndHandler:GetData()
+		for k,v in ipairs(self.seqCurrencies) do
+		if v.strName == tCurrency.strName then
 			v.wndPanel:Show(true, true)
 		else
 			v.wndPanel:Show(false, true)
 		end
-	end
+	end	
+	self:UpdateBalance()
+	logexit("OnCurrencySelection")
 end
+
