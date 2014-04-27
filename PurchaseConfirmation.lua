@@ -25,7 +25,7 @@ local log = nil
  
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = {0, 8, 2} -- major, minor, bugfix
+local ADDON_VERSION = {0, 8, 3} -- major, minor, bugfix
 
 -- Should be false/"ERROR" for release builds
 local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
@@ -320,9 +320,14 @@ function PurchaseConfirmation:GetPunyLimit(tSettings)
 	logenter("GetPunyLimit")
 	
 	-- Calc punylimit as simple function of current level * tPuny.monThreshold
+	--[[
 	local nLevel = GameLib.GetPlayerUnit():GetBasicStats().nLevel
 	local monPunyLimit = nLevel * tonumber(tSettings.tPuny.monThreshold)
 	logdebug("GetPunyLimit", "playerLevel=" .. nLevel .. ", tPuny.monThreshold=" .. tSettings.tPuny.monThreshold ..", calculated monPunyLimit=" .. monPunyLimit)
+	]]
+	
+	-- No more of that confusing level-scaling stuff
+	local monPunyLimit = tSettings.tPuny.monThreshold
 	
 	logexit("GetPunyLimit")
 	return monPunyLimit
