@@ -466,6 +466,17 @@ function PurchaseConfirmation:GetSupportedCurrencyByEnum(eType)
 	return nil
 end
 
+function PurchaseConfirmation:OnDetailsButton()
+	local details = wndConfirmDialog:FindChild("DetailsArea")
+	details:Show(!details:IsVisible())
+end
+
+function PurchaseConfirmation:OnDetailsOpenSettings()
+	-- TODO: Select appropriate currency in window
+	self:OnConfigure()
+end
+
+
 ---------------------------------------------------------------------------------------------------
 -- Settings save/restore hooks
 ---------------------------------------------------------------------------------------------------
