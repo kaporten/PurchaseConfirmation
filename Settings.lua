@@ -160,14 +160,14 @@ function PurchaseConfirmation:DefaultSettings()
 	-- Contains individual settings for all currency types
 	local tAllSettings = {}
 
-	-- Initially populate all currency type with "conservative" / generic default values 	
+	-- Initially populate all currency type with "conservative" / generic default values
 	for _,v in ipairs(self.seqCurrencies) do
 		local t = {}
 		tAllSettings[v.strName] = t
 		
 		-- Fixed
 		t.tFixed = {}
-		t.tFixed.bEnabled = false		-- Fixed threshold disabled
+		t.tFixed.bEnabled = true		-- Fixed threshold enabled
 		t.tFixed.monThreshold = 0		-- No amount configured
 		
 		-- Empty coffers
@@ -188,26 +188,6 @@ function PurchaseConfirmation:DefaultSettings()
 		t.tPuny.bEnabled = false		-- Puny threshold disabled
 		t.tPuny.monThreshold = 0 		-- No amount configured
 	end
-
-	-- Override default values for Credits with appropriate Credits-only defaults
-	tAllSettings["Credits"].tFixed.bEnabled = true			-- Enable fixed threshold
-	tAllSettings["Credits"].tFixed.monThreshold = 50000		-- 5g
-	tAllSettings["Credits"].tPuny.bEnabled = true			-- Enable puny threshold
-	tAllSettings["Credits"].tPuny.monThreshold = 2500		-- 25s
-	
-	
-	
-	--[[
-		Set a "suitable" initial average threshold for some currencies.
-		These initial averages are set to low-tier item purchases. The very first confirmed
-		purchase will be added to the price history, and a new proper average will be
-		calculated.
-		Since this "purchase" does not exist in the price history, it will not be part of
-		future calculations.
-	]]
-	tAllSettings["Credits"].tAverage.monThreshold = 1000 -- 10 silver
-	tAllSettings["Prestige"].tAverage.monThreshold = 100 -- 100 prestige
-	tAllSettings["Renown"].tAverage.monThreshold = 500 -- 500 renown
 
 	return tAllSettings	
 end

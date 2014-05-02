@@ -28,8 +28,8 @@ local ADDON_NAME = "PurchaseConfirmation"
 local ADDON_VERSION = {0, 8, 3} -- major, minor, bugfix
 
 -- Should be false/"ERROR" for release builds
-local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
-local LOG_LEVEL = "ERROR" -- Only log errors, not info/debug/warn
+local DEBUG_MODE = true -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
+local LOG_LEVEL = "DEBUG" -- Only log errors, not info/debug/warn
 
 -- Vendor addon references
 local VENDOR_ADDON_NAME = "Vendor" -- Used when loading/declaring dependencies to Vendor
@@ -233,36 +233,46 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 	end
 	
 	-- Sequence of thresholds to check
+	-- HACK: order here should match the GUI details ordering
 	local tThresholds = {
-		{ -- Fixed threshold config
-			monPrice = monPrice,
+		fixed = { -- Fixed threshold config
 			monThreshold = tSettings.tFixed.monThreshold,
 			bEnabled = tSettings.tFixed.bEnabled,
 			strType = "Fixed"
 		},
-		{ -- Empty Coffers threshold config
-			monPrice = monPrice,
+		average = { -- Average threshold config
+			monThreshold = tSettings.tAverage.monThreshold,
+			bEnabled = tSettings.tAverage.bEnabled,
+			strType = "Average"
+		},
+		emptyCoffers = { -- Empty Coffers threshold config
 			monThreshold = addon:GetEmptyCoffersThreshold(tSettings),
 			bEnabled = tSettings.tEmptyCoffers.bEnabled,
 			strType = "EmptyCoffers"
 		},
-		{ -- Average threshold config
-			monPrice = monPrice,
-			monThreshold = tSettings.tAverage.monThreshold,
-			bEnabled = tSettings.tAverage.bEnabled,
-			strType = "Average"
-		}
 	}
 		
-	-- Check all thresholds in order, raise warning for first breach
-	for _,v in ipairs(tThresholds) do
-		if addon:IsThresholdBreached(v, tItemData) then 
-			addon:RequestPurchaseConfirmation(v, tItemData)
-			return 
+	-- Check all thresholds in order, register breach status on threshold table
+	local bRequestConfirmation = false
+	for _,v in pairs(tThresholds) do
+		log:debug("!!!")
+		log:debug(_)
+		local bBreached = addon:IsThresholdBreached(v, tItemData, monPrice)
+		v.bBreached = bBreached
+		
+		-- Track if any of them were breached
+		if bBreached then
+			bRequestConfirmation = true
 		end
 	end
+
+	-- If confirmation is required, show dialog and DO NOT proceed to confirm purchase	
+	if bRequestConfirmation then
+		addon:RequestPurchaseConfirmation(tThresholds, tItemData, monPrice)
+		return 
+	end
 	
-	-- No thresholds breached
+	-- No thresholds breached, just confirm purchase
 	addon:ConfirmPurchase(tItemData)
 end
 
@@ -277,7 +287,7 @@ function PurchaseConfirmation:GetEmptyCoffersThreshold(tSettings)
 end
 
 -- Checks if a given threshold is enabled & breached
-function PurchaseConfirmation:IsThresholdBreached(tThreshold, tItemData)
+function PurchaseConfirmation:IsThresholdBreached(tThreshold, tItemData, monPrice)
 	logenter("IsThresholdBreached")
 	
 	-- Is threshold enabled?
@@ -287,19 +297,19 @@ function PurchaseConfirmation:IsThresholdBreached(tThreshold, tItemData)
 	end
 	
 	-- Is threshold available?
-	if not tThreshold.monThreshold or tThreshold.monThreshold <= 0 then
+	if not tThreshold.monThreshold or tThreshold.monThreshold < 0 then
 		logdebug("IsThresholdBreached", "Threshold type " .. tThreshold.strType .. " has no active amount, skipping price check")
 		return false
 	end
 	
 	-- Is threshold breached?
-	if tThreshold.monPrice < tThreshold.monThreshold then
-		-- safe amount
-		logdebug("IsThresholdBreached", tThreshold.strType .. " threshold, safe amount (amount<threshold): " .. tThreshold.monPrice .. "<" .. tThreshold.monThreshold)
-		return false
-	else
-		loginfo("IsThresholdBreached", tThreshold.strType .. " threshold, unsafe amount (amount>=threshold): " .. tThreshold.monPrice .. ">=" .. tThreshold.monThreshold)
+	if monPrice > tThreshold.monThreshold then
+		loginfo("IsThresholdBreached", tThreshold.strType .. " threshold, unsafe amount (amount>=threshold): " .. monPrice  .. ">=" .. tThreshold.monThreshold)
 		return true
+	else
+		-- safe amount
+		loginfo("IsThresholdBreached", tThreshold.strType .. " threshold, safe amount (amount<threshold): " .. monPrice  .. "<" .. tThreshold.monThreshold)
+		return false
 	end
 end
 
@@ -334,16 +344,24 @@ function PurchaseConfirmation:GetPunyLimit(tSettings)
 end
 
 -- Price for current purchase is unsafe: show warning dialogue
-function PurchaseConfirmation:RequestPurchaseConfirmation(tThreshold, tItemData)
+function PurchaseConfirmation:RequestPurchaseConfirmation(tThresholds, tItemData, monPrice)
 	logenter("RequestPurchaseConfirmation")
 	
+	local addon = Apollo.GetAddon(ADDON_NAME)
 	local wndDialog = self.wndConfirmDialog		
+	
+	-- Set basic dialog data
 	wndDialog:SetData(tItemData)
 	wndDialog:FindChild("ItemName"):SetText(tItemData.strName)
 	wndDialog:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
-	wndDialog:FindChild("ItemPrice"):SetAmount(tThreshold.monPrice, true)
+	wndDialog:FindChild("ItemPrice"):SetAmount(monPrice, true)
 	wndDialog:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
 	
+	-- Set detailed dialog data. For now, assume Fixed,Average,EmptyCoffers ordering in input
+	addon:UpdateConfirmationDetailsLine(tThresholds.fixed, wndDialog:FindChild("ThresholdFixed"))
+	addon:UpdateConfirmationDetailsLine(tThresholds.average, wndDialog:FindChild("ThresholdAverage"))
+	addon:UpdateConfirmationDetailsLine(tThresholds.emptyCoffers, wndDialog:FindChild("ThresholdEmptyCoffers"))
+		
 	--[[
 		Deactivate main vendor window while waiting for input, to avoid
 		multiple unconfirmed purchases interfering with eachother.
@@ -354,6 +372,29 @@ function PurchaseConfirmation:RequestPurchaseConfirmation(tThreshold, tItemData)
 	wndDialog:Show(true)
 	
 	logexit("RequestPurchaseConfirmation")
+end
+
+-- Sets current display values on a single "details line" on the confirmation dialog
+function PurchaseConfirmation:UpdateConfirmationDetailsLine(tThreshold, wndLine)
+	logenter("UpdateConfirmationDetailsLine")
+	wndLine:FindChild("Amount"):SetAmount(tThreshold.monThreshold, true)
+	
+	if tThreshold.bEnabled then
+		wndLine:FindChild("Icon"):Show(tThreshold.bBreached)
+		wndLine:FindChild("Label"):SetTextColor("xkcdLightGrey")
+		wndLine:FindChild("Amount"):SetTextColor("xkcdLightGrey")
+		if tThreshold.bBreached then
+			wndLine:SetTooltip("Threshold is breached")
+		else
+			wndLine:SetTooltip("Threshold is not breached")
+		end
+	else
+		wndLine:FindChild("Icon"):Show(false)
+		wndLine:FindChild("Label"):SetTextColor("xkcdMediumGrey")
+		wndLine:FindChild("Amount"):SetTextColor("xkcdMediumGrey")
+		wndLine:SetTooltip("Threshold is disabled")
+	end
+	logexit("UpdateConfirmationDetailsLine")
 end
 
 -- Called when a purchase is confirmed, either because the "Confirm" was pressed on dialog
@@ -466,15 +507,26 @@ function PurchaseConfirmation:GetSupportedCurrencyByEnum(eType)
 	return nil
 end
 
-function PurchaseConfirmation:OnDetailsButton()
-	local details = wndConfirmDialog:FindChild("DetailsArea")
-	details:Show(!details:IsVisible())
+
+function PurchaseConfirmation:OnDetailsButtonCheck( wndHandler, wndControl, eMouseButton )
+	logenter("OnDetailsButtonCheck")
+	local details = self.wndConfirmDialog:FindChild("DetailsArea")
+	details:Show(true, true)
+	logexit("OnDetailsButtonCheck")
+end
+
+function PurchaseConfirmation:OnDetailsButtonUncheck( wndHandler, wndControl, eMouseButton )
+	logenter("OnDetailsButtonUncheck")
+	local details = self.wndConfirmDialog:FindChild("DetailsArea")
+	details:Show(false, true)
+	logexit("OnDetailsButtonUncheck")
 end
 
 function PurchaseConfirmation:OnDetailsOpenSettings()
 	-- TODO: Select appropriate currency in window
 	self:OnConfigure()
 end
+
 
 
 ---------------------------------------------------------------------------------------------------
