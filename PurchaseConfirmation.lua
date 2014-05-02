@@ -25,11 +25,11 @@ local log = nil
  
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = {0, 8, 3} -- major, minor, bugfix
+local ADDON_VERSION = {0, 9, 0} -- major, minor, bugfix
 
 -- Should be false/"ERROR" for release builds
-local DEBUG_MODE = true -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
-local LOG_LEVEL = "DEBUG" -- Only log errors, not info/debug/warn
+local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
+local LOG_LEVEL = "ERROR" -- Only log errors, not info/debug/warn
 
 -- Vendor addon references
 local VENDOR_ADDON_NAME = "Vendor" -- Used when loading/declaring dependencies to Vendor
@@ -328,14 +328,7 @@ end
 -- Determines the current punyLimit
 function PurchaseConfirmation:GetPunyLimit(tSettings)
 	logenter("GetPunyLimit")
-	
-	-- Calc punylimit as simple function of current level * tPuny.monThreshold
-	--[[
-	local nLevel = GameLib.GetPlayerUnit():GetBasicStats().nLevel
-	local monPunyLimit = nLevel * tonumber(tSettings.tPuny.monThreshold)
-	logdebug("GetPunyLimit", "playerLevel=" .. nLevel .. ", tPuny.monThreshold=" .. tSettings.tPuny.monThreshold ..", calculated monPunyLimit=" .. monPunyLimit)
-	]]
-	
+
 	-- No more of that confusing level-scaling stuff
 	local monPunyLimit = tSettings.tPuny.monThreshold
 	
@@ -354,6 +347,9 @@ function PurchaseConfirmation:RequestPurchaseConfirmation(tThresholds, tItemData
 	wndDialog:SetData(tItemData)
 	wndDialog:FindChild("ItemName"):SetText(tItemData.strName)
 	wndDialog:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
+--	wndDialog:FindChild("ItemIcon"):GetWindowSubclass():SetItem(tItemData.itemData)
+--	wndCurr:FindChild("VendorListItemIcon"):GetWindowSubclass():SetItem(tCurrItem.itemData)
+
 	wndDialog:FindChild("ItemPrice"):SetAmount(monPrice, true)
 	wndDialog:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
 	
