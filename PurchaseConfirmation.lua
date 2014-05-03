@@ -29,8 +29,8 @@ local ADDON_NAME = "PurchaseConfirmation"
 local ADDON_VERSION = {0, 9, 1} -- major, minor, bugfix
 
 -- Should be false/"ERROR" for release builds
-local DEBUG_MODE = true -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
-local LOG_LEVEL = "INFO" -- Only log errors, not info/debug/warn
+local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
+local LOG_LEVEL = "ERROR" -- Only log errors, not info/debug/warn
 
 -- Vendor addon references
 local VENDOR_ADDON_NAME = "Vendor" -- Used when loading/declaring dependencies to Vendor
@@ -258,7 +258,7 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 			strType = "Average"
 		},
 		emptyCoffers = { -- Empty Coffers threshold config
-			monThreshold = addon:GetEmptyCoffersThreshold(tSettings),
+			monThreshold = addon:GetEmptyCoffersThreshold(tSettings, tCurrency),
 			bEnabled = tSettings.tEmptyCoffers.bEnabled,
 			strType = "EmptyCoffers"
 		},
@@ -287,11 +287,11 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 end
 
 -- Empty coffers threshold is a % of the players total credit
-function PurchaseConfirmation:GetEmptyCoffersThreshold(tSettings)
+function PurchaseConfirmation:GetEmptyCoffersThreshold(tSettings, tCurrency)
 	logenter("GetEmptyCoffersThreshold")
-	local monCurrentPlayerCash = GameLib.GetPlayerCurrency():GetAmount()
+	local monCurrentPlayerCash = GameLib.GetPlayerCurrency(tCurrency.eType):GetAmount()
 	local threshold = math.floor(monCurrentPlayerCash * (tSettings.tEmptyCoffers.nPercent/100))
-	logdebug("GetEmptyCoffersThreshold", "Empty coffers threshold calculated: " .. tostring(tSettings.tEmptyCoffers.nPercent) .. "% of " .. tostring(monCurrentPlayerCash) .. " = " .. tostring(threshold))
+	logdebug("GetEmptyCoffersThreshold", "Empty coffers threshold calculated for " .. tCurrency.strName .. ": " .. tostring(tSettings.tEmptyCoffers.nPercent) .. "% of " .. tostring(monCurrentPlayerCash) .. " = " .. tostring(threshold))
 	logexit("GetEmptyCoffersThreshold")
 	return threshold
 end
@@ -347,10 +347,12 @@ function PurchaseConfirmation:GetPunyLimit(tSettings)
 end
 
 -- Price for current purchase is unsafe: show warning dialogue
+-- Configure all relevant fields & display properties in confirmation dialog before showing
 function PurchaseConfirmation:RequestPurchaseConfirmation(tThresholds, tItemData, monPrice)
 	logenter("RequestPurchaseConfirmation")
 	
 	local addon = Apollo.GetAddon(ADDON_NAME)
+	local vendor = Apollo.GetAddon(VENDOR_ADDON_NAME)
 	local wndDialog = self.wndConfirmDialog
 	wndDialog:SetData(tItemData)
 
@@ -366,6 +368,15 @@ function PurchaseConfirmation:RequestPurchaseConfirmation(tThresholds, tItemData
 	wndMainDialogArea:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
 	wndMainDialogArea:FindChild("ItemPrice"):SetAmount(monPrice, true)
 	wndMainDialogArea:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
+	wndMainDialogArea:FindChild("CantUse"):Show(vendor:HelperPrereqFailed(tItemData))
+
+	-- Only show stack size count if we're buying more a >1 size stack
+	if (tItemData.nStackSize > 1) then
+		wndMainDialogArea:FindChild("StackSize"):SetText(tItemData.nStackSize)
+		wndMainDialogArea:FindChild("StackSize"):Show(true, true)
+	else
+		wndMainDialogArea:FindChild("StackSize"):Show(false, true)
+	end
 	
 	-- Extract item quality
 	local eQuality = tonumber(Item.GetDetailedInfo(tItemData).tPrimary.eQuality)
@@ -381,16 +392,16 @@ function PurchaseConfirmation:RequestPurchaseConfirmation(tThresholds, tItemData
 	-- Update tooltip to match current item
 	local itemArea = wndMainDialogArea:FindChild("ItemArea")
 	itemArea:SetData(tItemData)
-	Apollo.GetAddon(VENDOR_ADDON_NAME):OnVendorListItemGenerateTooltip(itemArea, itemArea) -- Yes, params are switched!
+	vendor:OnVendorListItemGenerateTooltip(itemArea, itemArea) -- Yes, params are switched!
 
 		
 	-- [[ DETAILED THRESHOLD AREA ]]
 	
 	-- Set detailed dialog data. For now, assume Fixed,Average,EmptyCoffers ordering in input
 	local wndDetails = self.wndConfirmDialog:FindChild("DetailsArea")
-	addon:UpdateConfirmationDetailsLine(tThresholds.fixed, wndDetails:FindChild("ThresholdFixed"))
-	addon:UpdateConfirmationDetailsLine(tThresholds.average, wndDetails:FindChild("ThresholdAverage"))
-	addon:UpdateConfirmationDetailsLine(tThresholds.emptyCoffers, wndDetails:FindChild("ThresholdEmptyCoffers"))
+	addon:UpdateConfirmationDetailsLine(tItemData, tThresholds.fixed, wndDetails:FindChild("ThresholdFixed"))
+	addon:UpdateConfirmationDetailsLine(tItemData, tThresholds.average, wndDetails:FindChild("ThresholdAverage"))
+	addon:UpdateConfirmationDetailsLine(tItemData, tThresholds.emptyCoffers, wndDetails:FindChild("ThresholdEmptyCoffers"))
 	
 	
 	--[[
@@ -406,10 +417,11 @@ function PurchaseConfirmation:RequestPurchaseConfirmation(tThresholds, tItemData
 end
 
 -- Sets current display values on a single "details line" on the confirmation dialog
-function PurchaseConfirmation:UpdateConfirmationDetailsLine(tThreshold, wndLine)
+function PurchaseConfirmation:UpdateConfirmationDetailsLine(tItemData, tThreshold, wndLine)
 	logenter("UpdateConfirmationDetailsLine")
 	wndLine:FindChild("Amount"):SetAmount(tThreshold.monThreshold, true)
-	
+	wndLine:FindChild("Amount"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
+
 	if tThreshold.bEnabled then
 		wndLine:FindChild("Icon"):Show(tThreshold.bBreached)
 		wndLine:FindChild("Label"):SetTextColor("xkcdLightGrey")
@@ -427,6 +439,12 @@ function PurchaseConfirmation:UpdateConfirmationDetailsLine(tThreshold, wndLine)
 	end
 	logexit("UpdateConfirmationDetailsLine")
 end
+
+--[[
+function PurchaseConfirmation:ProduceThresholdTooltipFixed(tThreshold, monAmount)
+	if tThreshold.bEnabled then
+end
+]]
 
 -- Called when a purchase is confirmed, either because the "Confirm" was pressed on dialog
 -- or because the purchase did not breach any thresholds (and was not puny)
