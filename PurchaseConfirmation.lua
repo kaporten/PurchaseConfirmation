@@ -22,7 +22,7 @@ local PurchaseConfirmation = {}
 	
 -- Gemini logging ref stored in chunk for logging shorthand methods
 -- TODO: either use Gemini logging "raw", or create a real wrapper class for it.
-local log = nil
+local log
  
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
@@ -35,6 +35,19 @@ local LOG_LEVEL = "INFO" -- Only log errors, not info/debug/warn
 -- Vendor addon references
 local VENDOR_ADDON_NAME = "Vendor" -- Used when loading/declaring dependencies to Vendor
 local VENDOR_BUY_TAB_NAME = "VendorTab0" -- Used to check if the Vendor used to buy or sell etc
+
+-- Copied from the Util addon. Used to set item quality borders on the confirmation dialog
+-- TODO: Figure out how to use list in Util addon itself.
+local qualityColors = {
+	ApolloColor.new("ItemQuality_Inferior"),
+	ApolloColor.new("ItemQuality_Average"),
+	ApolloColor.new("ItemQuality_Good"),
+	ApolloColor.new("ItemQuality_Excellent"),
+	ApolloColor.new("ItemQuality_Superb"),
+	ApolloColor.new("ItemQuality_Legendary"),
+	ApolloColor.new("ItemQuality_Artifact"),
+	ApolloColor.new("00000000")
+}
 
 -- Standard object instance creation
 function PurchaseConfirmation:new(o)
@@ -137,7 +150,7 @@ function PurchaseConfirmation:OnDocLoaded()
 	
 	
 	for i,tCurrency in ipairs(self.seqCurrencies) do
-		-- Set text on header button (size must match actual button configuration!)
+		-- Set text on header button (size of seqCurrencies must match actual button layout on SettingsForm!)
 		local btn = self.wndSettings:FindChild("CurrencyBtn" .. i)
 		btn:SetText(tCurrency.strDisplay)
 		btn:SetData(tCurrency)
@@ -171,7 +184,7 @@ function PurchaseConfirmation:OnDocLoaded()
 	
 	-- If running debug-mode, warn user (should never make it into production)
 	if DEBUG_MODE == true then
-		Print("Addon '" .. ADDON_NAME .. "' running in debug-mode. Vendor purchases are disabled. Please contact the author (porten@gmail.com or via Curse) if you ever see this, since I probably forgot to disable debug-mode before releasing. For shame :(")
+		Print("Addon '" .. ADDON_NAME .. "' running in debug-mode! Vendor purchases are disabled. Please contact me via Curse if you ever see this, since I probably forgot to disable debug-mode before releasing. For shame :(")
 	end
 	
 	logexit("OnDocLoaded")
@@ -184,8 +197,9 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 	-- CheckPurchase is called by Vendor, not PurchaseConfirmation. So "self" targets Vendor.	
 	-- Get reference to PurchaseConfirmation addon to use in this Vendor-initialized callstack.	
 	local addon = Apollo.GetAddon(ADDON_NAME)
-	addon.tItemData = tItemData -- Add to addons self for in-game debugging. Not actually used anywhere.
-
+	
+	-- Store itemdata in addon for easier debugging. Not used in application code.
+	addon.tItemData = tItemData 
 	
 	--[[ SKIP UNSUPPORTED CASES ]]
 	
@@ -232,7 +246,6 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 	end
 	
 	-- Sequence of thresholds to check
-	-- HACK: order here should match the GUI details ordering
 	local tThresholds = {
 		fixed = { -- Fixed threshold config
 			monThreshold = tSettings.tFixed.monThreshold,
@@ -254,8 +267,6 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 	-- Check all thresholds in order, register breach status on threshold table
 	local bRequestConfirmation = false
 	for _,v in pairs(tThresholds) do
-		log:debug("!!!")
-		log:debug(_)
 		local bBreached = addon:IsThresholdBreached(v, tItemData, monPrice)
 		v.bBreached = bBreached
 		
@@ -340,69 +351,47 @@ function PurchaseConfirmation:RequestPurchaseConfirmation(tThresholds, tItemData
 	logenter("RequestPurchaseConfirmation")
 	
 	local addon = Apollo.GetAddon(ADDON_NAME)
-	local wndDialog = self.wndConfirmDialog		
-	
-	-- Set basic dialog data
-	-- TODO: Add tooltip and quality-color border
+	local wndDialog = self.wndConfirmDialog
 	wndDialog:SetData(tItemData)
-	wndDialog:FindChild("ItemName"):SetText(tItemData.strName)
-	wndDialog:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
-	wndDialog:FindChild("ItemPrice"):SetAmount(monPrice, true)
-	wndDialog:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
 
-	-- Item quality experimentation
-	log:warn(Item.GetDetailedInfo(tItemData).tPrimary.eQuality)
-	addon.itemDetailInfo=Item.GetDetailedInfo(tItemData)
-	
-	
-	-- TODO: Hook into Util/WindowSubclass stuff to get proper icon border? Or manually replicate here?
---	addon.util = Apollo.GetAddon("Util")
+	-- Store item details on addon for easier debugging (not used in application code)	
+	addon.itemDetailInfo = Item.GetDetailedInfo(tItemData)
 
-	local qualityColors = {
-		ApolloColor.new("ItemQuality_Inferior"),
-		ApolloColor.new("ItemQuality_Average"),
-		ApolloColor.new("ItemQuality_Good"),
-		ApolloColor.new("ItemQuality_Excellent"),
-		ApolloColor.new("ItemQuality_Superb"),
-		ApolloColor.new("ItemQuality_Legendary"),
-		ApolloColor.new("ItemQuality_Artifact"),
-		ApolloColor.new("00000000")
-	}
+		
+	--[[ BASIC DIALOG DATA ]]
+
+	-- Basic info
+	local wndMainDialogArea = wndDialog:FindChild("DialogArea")
+	wndMainDialogArea:FindChild("ItemName"):SetText(tItemData.strName)
+	wndMainDialogArea:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
+	wndMainDialogArea:FindChild("ItemPrice"):SetAmount(monPrice, true)
+	wndMainDialogArea:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
+	
+	-- Extract item quality
 	local eQuality = tonumber(Item.GetDetailedInfo(tItemData).tPrimary.eQuality)
 
-	
-	local icon = wndDialog:FindChild("ItemIcon")
-		local tPixieOverlay = {
-			strSprite = "UI_BK3_ItemQualityWhite",
-			loc = {fPoints = {0, 0, 1, 1}, nOffsets = {0, 0, 0, 0}},
-			cr = qualityColors[math.max(1, math.min(eQuality, #qualityColors))]
-		}
-		icon:AddPixie(tPixieOverlay)
-	
-	--ItemWindowSubclassRegistrar
-	
-	
-	-- TODO: Get subclass from selected vendor item?	
-	--wndDialog:FindChild("ItemIcon"):SetWindowSubclass():SetItem(tItemData.itemData)
+	-- Add pixie quality-color border to the ItemIcon element
+	local tPixieOverlay = {
+		strSprite = "UI_BK3_ItemQualityWhite",
+		loc = {fPoints = {0, 0, 1, 1}, nOffsets = {0, 0, 0, 0}},
+		cr = qualityColors[math.max(1, math.min(eQuality, #qualityColors))]
+	}	
+	wndMainDialogArea:FindChild("ItemIcon"):AddPixie(tPixieOverlay)
 
-
---	wndCurr:FindChild("VendorListItemIcon"):GetWindowSubclass():SetItem(tCurrItem.itemData)
---	wndDialog
-
-	
---	Apollo.GetAddon(VENDOR_ADDON_NAME):DrawListItems(wndDialog:FindChild("ItemArea"), {tItemData})
-
-	
-	
-	-- Set detailed dialog data. For now, assume Fixed,Average,EmptyCoffers ordering in input
-	addon:UpdateConfirmationDetailsLine(tThresholds.fixed, wndDialog:FindChild("ThresholdFixed"))
-	addon:UpdateConfirmationDetailsLine(tThresholds.average, wndDialog:FindChild("ThresholdAverage"))
-	addon:UpdateConfirmationDetailsLine(tThresholds.emptyCoffers, wndDialog:FindChild("ThresholdEmptyCoffers"))
-	
 	-- Update tooltip to match current item
-	local itemArea = wndDialog:FindChild("ItemArea")
+	local itemArea = wndMainDialogArea:FindChild("ItemArea")
 	itemArea:SetData(tItemData)
 	Apollo.GetAddon(VENDOR_ADDON_NAME):OnVendorListItemGenerateTooltip(itemArea, itemArea) -- Yes, params are switched!
+
+		
+	-- [[ DETAILED THRESHOLD AREA ]]
+	
+	-- Set detailed dialog data. For now, assume Fixed,Average,EmptyCoffers ordering in input
+	local wndDetails = self.wndConfirmDialog:FindChild("DetailsArea")
+	addon:UpdateConfirmationDetailsLine(tThresholds.fixed, wndDetails:FindChild("ThresholdFixed"))
+	addon:UpdateConfirmationDetailsLine(tThresholds.average, wndDetails:FindChild("ThresholdAverage"))
+	addon:UpdateConfirmationDetailsLine(tThresholds.emptyCoffers, wndDetails:FindChild("ThresholdEmptyCoffers"))
+	
 	
 	--[[
 		Deactivate main vendor window while waiting for input, to avoid
