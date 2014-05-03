@@ -15,6 +15,7 @@ require "Apollo"
 require "GameLib"
 require "Window"
 require "Money"
+require "Item"
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
@@ -47,14 +48,14 @@ end
 function PurchaseConfirmation:Init()
 	local bHasConfigureFunction = true
 	local strConfigureButtonText = "Purchase Conf."
-	local tDependencies = {VENDOR_ADDON_NAME, "Gemini:Logging-1.2"}
+	local tDependencies = {VENDOR_ADDON_NAME, "Util", "Gemini:Logging-1.2",}
 	
 	Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
  
 -- Called when addon loaded, sets up default config and variables, initializes XML form loading
 function PurchaseConfirmation:OnLoad()
-	
+
 	-- GeminiLogger options
 	local opt = {
 		level = LOG_LEVEL,
@@ -165,8 +166,6 @@ function PurchaseConfirmation:OnDocLoaded()
 		logdebug("OnDocLoaded", "Configured currency-settings for '" .. tostring(tCurrency.strName) .. "' (" .. tostring(tCurrency.eType) .. ")")
 	end
 		
-	--self.wndSettings:FindChild("CurrencySelector"):FindChild("Name"):SetText(self.wndSettings:FindChild("CurrencySelector"):GetData().strDisplay) -- NB: Display, not Name. Assuming Display is localized.
-	
 	-- Now that forms are loaded, remove XML doc for gc
 	self.xmlDoc = nil
 	
@@ -348,12 +347,52 @@ function PurchaseConfirmation:RequestPurchaseConfirmation(tThresholds, tItemData
 	wndDialog:SetData(tItemData)
 	wndDialog:FindChild("ItemName"):SetText(tItemData.strName)
 	wndDialog:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
---	wndDialog:FindChild("ItemIcon"):GetWindowSubclass():SetItem(tItemData.itemData)
+	wndDialog:FindChild("ItemPrice"):SetAmount(monPrice, true)
+	wndDialog:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
+
+	-- Item quality experimentation
+	log:warn(Item.GetDetailedInfo(tItemData).tPrimary.eQuality)
+	addon.itemDetailInfo=Item.GetDetailedInfo(tItemData)
+	
+	
+	-- TODO: Hook into Util/WindowSubclass stuff to get proper icon border? Or manually replicate here?
+--	addon.util = Apollo.GetAddon("Util")
+
+	local qualityColors = {
+		ApolloColor.new("ItemQuality_Inferior"),
+		ApolloColor.new("ItemQuality_Average"),
+		ApolloColor.new("ItemQuality_Good"),
+		ApolloColor.new("ItemQuality_Excellent"),
+		ApolloColor.new("ItemQuality_Superb"),
+		ApolloColor.new("ItemQuality_Legendary"),
+		ApolloColor.new("ItemQuality_Artifact"),
+		ApolloColor.new("00000000")
+	}
+	local eQuality = tonumber(Item.GetDetailedInfo(tItemData).tPrimary.eQuality)
+
+	
+	local icon = wndDialog:FindChild("ItemIcon")
+		local tPixieOverlay = {
+			strSprite = "UI_BK3_ItemQualityWhite",
+			loc = {fPoints = {0, 0, 1, 1}, nOffsets = {0, 0, 0, 0}},
+			cr = qualityColors[math.max(1, math.min(eQuality, #qualityColors))]
+		}
+		icon:AddPixie(tPixieOverlay)
+	
+	--ItemWindowSubclassRegistrar
+	
+	
+	-- TODO: Get subclass from selected vendor item?	
+	--wndDialog:FindChild("ItemIcon"):SetWindowSubclass():SetItem(tItemData.itemData)
+
+
 --	wndCurr:FindChild("VendorListItemIcon"):GetWindowSubclass():SetItem(tCurrItem.itemData)
 --	wndDialog
 
-	wndDialog:FindChild("ItemPrice"):SetAmount(monPrice, true)
-	wndDialog:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
+	
+--	Apollo.GetAddon(VENDOR_ADDON_NAME):DrawListItems(wndDialog:FindChild("ItemArea"), {tItemData})
+
+	
 	
 	-- Set detailed dialog data. For now, assume Fixed,Average,EmptyCoffers ordering in input
 	addon:UpdateConfirmationDetailsLine(tThresholds.fixed, wndDialog:FindChild("ThresholdFixed"))
@@ -533,13 +572,14 @@ function PurchaseConfirmation:OnDetailsOpenSettings()
 end
 
 
--- Straight-up pass params to Vendor
+--[[ not needed, tooltip generated manually when producing dialog
 function PurchaseConfirmation:GenerateItemTooltip(wndHandler, wndControl)
 	logenter("GenerateItemTooltip")
 	wndControl:SetData(Apollo.GetAddon(ADDON_NAME).wndConfirmDialog:GetData())
 	Apollo.GetAddon(VENDOR_ADDON_NAME):OnVendorListItemGenerateTooltip(wndHandler, wndControl) -- Yes, params are switched!
 	logexit("GenerateItemTooltip")
 end
+]]
 
 ---------------------------------------------------------------------------------------------------
 -- Settings save/restore hooks
