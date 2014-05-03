@@ -25,11 +25,11 @@ local log = nil
  
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = {0, 9, 0} -- major, minor, bugfix
+local ADDON_VERSION = {0, 9, 1} -- major, minor, bugfix
 
 -- Should be false/"ERROR" for release builds
-local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
-local LOG_LEVEL = "ERROR" -- Only log errors, not info/debug/warn
+local DEBUG_MODE = true -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
+local LOG_LEVEL = "INFO" -- Only log errors, not info/debug/warn
 
 -- Vendor addon references
 local VENDOR_ADDON_NAME = "Vendor" -- Used when loading/declaring dependencies to Vendor
@@ -344,11 +344,13 @@ function PurchaseConfirmation:RequestPurchaseConfirmation(tThresholds, tItemData
 	local wndDialog = self.wndConfirmDialog		
 	
 	-- Set basic dialog data
+	-- TODO: Add tooltip and quality-color border
 	wndDialog:SetData(tItemData)
 	wndDialog:FindChild("ItemName"):SetText(tItemData.strName)
 	wndDialog:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
 --	wndDialog:FindChild("ItemIcon"):GetWindowSubclass():SetItem(tItemData.itemData)
 --	wndCurr:FindChild("VendorListItemIcon"):GetWindowSubclass():SetItem(tCurrItem.itemData)
+--	wndDialog
 
 	wndDialog:FindChild("ItemPrice"):SetAmount(monPrice, true)
 	wndDialog:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
@@ -357,7 +359,12 @@ function PurchaseConfirmation:RequestPurchaseConfirmation(tThresholds, tItemData
 	addon:UpdateConfirmationDetailsLine(tThresholds.fixed, wndDialog:FindChild("ThresholdFixed"))
 	addon:UpdateConfirmationDetailsLine(tThresholds.average, wndDialog:FindChild("ThresholdAverage"))
 	addon:UpdateConfirmationDetailsLine(tThresholds.emptyCoffers, wndDialog:FindChild("ThresholdEmptyCoffers"))
-		
+	
+	-- Update tooltip to match current item
+	local itemArea = wndDialog:FindChild("ItemArea")
+	itemArea:SetData(tItemData)
+	Apollo.GetAddon(VENDOR_ADDON_NAME):OnVendorListItemGenerateTooltip(itemArea, itemArea) -- Yes, params are switched!
+	
 	--[[
 		Deactivate main vendor window while waiting for input, to avoid
 		multiple unconfirmed purchases interfering with eachother.
@@ -503,7 +510,7 @@ function PurchaseConfirmation:GetSupportedCurrencyByEnum(eType)
 	return nil
 end
 
-
+-- When checking the details button, show the details panel
 function PurchaseConfirmation:OnDetailsButtonCheck( wndHandler, wndControl, eMouseButton )
 	logenter("OnDetailsButtonCheck")
 	local details = self.wndConfirmDialog:FindChild("DetailsArea")
@@ -511,6 +518,7 @@ function PurchaseConfirmation:OnDetailsButtonCheck( wndHandler, wndControl, eMou
 	logexit("OnDetailsButtonCheck")
 end
 
+-- When checking the details button, hide the details panel
 function PurchaseConfirmation:OnDetailsButtonUncheck( wndHandler, wndControl, eMouseButton )
 	logenter("OnDetailsButtonUncheck")
 	local details = self.wndConfirmDialog:FindChild("DetailsArea")
@@ -518,12 +526,20 @@ function PurchaseConfirmation:OnDetailsButtonUncheck( wndHandler, wndControl, eM
 	logexit("OnDetailsButtonUncheck")
 end
 
+-- Clicking the detail-panel configure button opens the config
 function PurchaseConfirmation:OnDetailsOpenSettings()
-	-- TODO: Select appropriate currency in window
+	-- TODO: pre-select current currency in settings window
 	self:OnConfigure()
 end
 
 
+-- Straight-up pass params to Vendor
+function PurchaseConfirmation:GenerateItemTooltip(wndHandler, wndControl)
+	logenter("GenerateItemTooltip")
+	wndControl:SetData(Apollo.GetAddon(ADDON_NAME).wndConfirmDialog:GetData())
+	Apollo.GetAddon(VENDOR_ADDON_NAME):OnVendorListItemGenerateTooltip(wndHandler, wndControl) -- Yes, params are switched!
+	logexit("GenerateItemTooltip")
+end
 
 ---------------------------------------------------------------------------------------------------
 -- Settings save/restore hooks
