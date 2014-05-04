@@ -26,7 +26,7 @@ local log
  
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = {0, 9, 1} -- major, minor, bugfix
+local ADDON_VERSION = {0, 9, 2} -- major, minor, bugfix
 
 -- Should be false/"ERROR" for release builds
 local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
