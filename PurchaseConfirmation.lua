@@ -36,6 +36,9 @@ local LOG_LEVEL = "ERROR" -- Only log errors, not info/debug/warn
 local VENDOR_ADDON_NAME = "Vendor" -- Used when loading/declaring dependencies to Vendor
 local VENDOR_BUY_TAB_NAME = "VendorTab0" -- Used to check if the Vendor used to buy or sell etc
 
+local DETAIL_WINDOW_HEIGHT = 100
+
+
 -- Copied from the Util addon. Used to set item quality borders on the confirmation dialog
 -- TODO: Figure out how to use list in Util addon itself.
 local qualityColors = {
@@ -559,6 +562,13 @@ end
 -- When checking the details button, show the details panel
 function PurchaseConfirmation:OnDetailsButtonCheck( wndHandler, wndControl, eMouseButton )
 	logenter("OnDetailsButtonCheck")
+	
+	-- Resize the main window frame so that it is possible to drag it around via the hidden details section
+	local left, top, right, bottom = self.wndConfirmDialog:GetAnchorOffsets()
+	logdebug("OnDetailsButtonCheck", "left="..left..", top="..top..", right="..right..", bottom="..bottom)
+	bottom = bottom + DETAIL_WINDOW_HEIGHT
+	self.wndConfirmDialog:SetAnchorOffsets(left, top, right, bottom)
+
 	local details = self.wndConfirmDialog:FindChild("DetailsArea")
 	details:Show(true, true)
 	logexit("OnDetailsButtonCheck")
@@ -567,6 +577,13 @@ end
 -- When checking the details button, hide the details panel
 function PurchaseConfirmation:OnDetailsButtonUncheck( wndHandler, wndControl, eMouseButton )
 	logenter("OnDetailsButtonUncheck")
+
+	-- Resize the main window frame so that it is not possible to drag it around via the hidden details section
+	local left, top, right, bottom = self.wndConfirmDialog:GetAnchorOffsets()
+	logdebug("OnDetailsButtonUncheck", "left="..left..", top="..top..", right="..right..", bottom="..bottom)
+	bottom = bottom - DETAIL_WINDOW_HEIGHT
+	self.wndConfirmDialog:SetAnchorOffsets(left, top, right, bottom)
+	
 	local details = self.wndConfirmDialog:FindChild("DetailsArea")
 	details:Show(false, true)
 	logexit("OnDetailsButtonUncheck")
@@ -578,15 +595,6 @@ function PurchaseConfirmation:OnDetailsOpenSettings()
 	self:OnConfigure()
 end
 
-
---[[ not needed, tooltip generated manually when producing dialog
-function PurchaseConfirmation:GenerateItemTooltip(wndHandler, wndControl)
-	logenter("GenerateItemTooltip")
-	wndControl:SetData(Apollo.GetAddon(ADDON_NAME).wndConfirmDialog:GetData())
-	Apollo.GetAddon(VENDOR_ADDON_NAME):OnVendorListItemGenerateTooltip(wndHandler, wndControl) -- Yes, params are switched!
-	logexit("GenerateItemTooltip")
-end
-]]
 
 ---------------------------------------------------------------------------------------------------
 -- Settings save/restore hooks
