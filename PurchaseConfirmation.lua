@@ -140,7 +140,10 @@ function PurchaseConfirmation:OnDocLoaded()
 		logerror("OnDocLoaded", "wndConfirmDialog is nil!")
 		return
 	end
-	self.wndConfirmDialog:Show(false, true)	
+	self:wndConfirmDialog:Show(false, true)	
+	
+	-- Dialog form has details-foldout enabled in Hudson for editability. Collapse it by default
+	self:OnDetailsButtonUncheck()
 
 	-- Load settings dialog form
 	self.wndSettings = Apollo.LoadForm(self.xmlDoc, "SettingsForm", nil, self)
