@@ -26,7 +26,7 @@ L["Dialog_DetailsTooltip_NotBreached"] = "Schwelle nicht verletzt"
 	--[[ SETTINGS WINDOW ]]
 
 -- Main window labels
-L["Settings_WindowTitle"] = "EinkaufBestätigung Einstellungen"
+L["Settings_WindowTitle"] = "PurchaseConfirmation Einstellungen"
 L["Settings_ButtonAccept"] = "Akzeptieren"
 L["Settings_ButtonCancel"] = "Stornieren"
 L["Settings_Balance"] = "Aktuelle Bilanz"
@@ -37,13 +37,13 @@ L["Settings_TabCurrency_Credits"] = "Credits"
 L["Settings_TabCurrency_Renown"] = "Renown"
 L["Settings_TabCurrency_Prestige"] = "Prestige"
 L["Settings_TabCurrency_CraftingVouchers"] = "Crafting"
-L["Settings_TabCurrency_ElderGems"] = "ElderGems"
+L["Settings_TabCurrency_ElderGems"] = "Elder Gems"
 
 -- Individual threshold labels and descriptions
-L["Settings_Threshold_Fixed_Enable"] = "\"festen oberen\" Schwelle aktivieren:"
+L["Settings_Threshold_Fixed_Enable"] = "\"Festen oberen\" Schwelle aktivieren:"
 L["Settings_Threshold_Fixed_Description"] = "Verlangen immer Bestätigung für Einkäufe über diesen Betrag."
 
-L["Settings_Threshold_Puny_Enable"] = "\"mickrigen Betrag\" Schwelle aktivieren:"
+L["Settings_Threshold_Puny_Enable"] = "\"Mickrigen Betrag\" Schwelle aktivieren:"
 L["Settings_Threshold_Puny_Description"] = "Nie fordern Bestätigung für Einkäufe unter diesem Betrag, und verwenden Sie nicht den Kauf in \"durchschnittlichen Ausgaben\" Schwelle Berechnungen."
 
 L["Settings_Threshold_Average_Enable"] = "\"Durchschnittlichen Ausgaben\" Schwelle aktivieren [1-100%]:"

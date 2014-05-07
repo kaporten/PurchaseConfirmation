@@ -37,7 +37,7 @@ L["Settings_TabCurrency_Credits"] = "Credits"
 L["Settings_TabCurrency_Renown"] = "Renown"
 L["Settings_TabCurrency_Prestige"] = "Prestige"
 L["Settings_TabCurrency_CraftingVouchers"] = "Crafting"
-L["Settings_TabCurrency_ElderGems"] = "ElderGems"
+L["Settings_TabCurrency_ElderGems"] = "Elder Gems"
 
 -- Individual threshold labels and descriptions
 L["Settings_Threshold_Fixed_Enable"] = "Enable \"fixed upper\" threshold:"
