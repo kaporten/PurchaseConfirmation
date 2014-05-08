@@ -3,6 +3,13 @@
     <!-- Libraries -->
     <Script Name="libs/inspect-1.2/inspect.lua"/>
     <Script Name="libs/GeminiLogging-1.2/GeminiLogging.lua"/>
+    <Script Name="libs/GeminiLocale-1.0/GeminiLocale.lua"/>
+    <!-- Localization -->
+    <Script Name="Localization.lua"/>
+    <Script Name="locale/enUS.lua"/>
+    <Script Name="locale/deDE.lua"/>
+    <Script Name="locale/frFR.lua"/>
+    <Script Name="locale/koKR.lua"/>
     <!-- Addon itself -->
     <Script Name="PurchaseConfirmation.lua"/>
     <Script Name="Settings.lua"/>

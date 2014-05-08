@@ -1,16 +1,15 @@
-local L = Apollo.GetPackage("GeminiLocale-1.0").tPackage:NewLocale("PurchaseConfirmation", "koKR")
+local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:NewLocale("PurchaseConfirmation", "koKR")
 if not L then return end
 
 --[[ Proper Translations ]]--
 
 --[[ Google Translations ]]--
 
+
 	--[[ CONFIRMATION DIALOG ]]
 
 -- Main window labels
 L["Dialog_WindowTitle"] = "구매 확인"
-L["Dialog_ButtonConfirm"] = "매수"
-L["Dialog_ButtonCancel"] = "취소"
 L["Dialog_ButtonDetails"] = "세부"
 
 -- Detail window foldout labels
@@ -21,22 +20,13 @@ L["Dialog_DetailsLabel_EmptyCoffers"] = "빈 금고"
 -- Detail window foldout tooltips
 L["Dialog_DetailsTooltip_Breached"] = "임계 값 위반된다"
 L["Dialog_DetailsTooltip_NotBreached"] = "임계 값이 위반되지 않는다"
-
+L["Dialog_DetailsTooltip_Disabled"] = "임계 값을 사용할 수"
 
 	--[[ SETTINGS WINDOW ]]
 
 -- Main window labels
 L["Settings_WindowTitle"] = "구매 확인 설정"
-L["Settings_ButtonAccept"] = "동의"
-L["Settings_ButtonCancel"] = "취소"
 L["Settings_Balance"] = "현재 잔액"
-
--- Shortish currency descriptions, that will fit the tab-button layout
-L["Settings_TabCurrency_Credits"] = "Credits"
-L["Settings_TabCurrency_Renown"] = "Renown"
-L["Settings_TabCurrency_Prestige"] = "Prestige"
-L["Settings_TabCurrency_CraftingVouchers"] = "Crafting"
-L["Settings_TabCurrency_ElderGems"] = "Elder Gems"
 
 -- Individual threshold labels and descriptions
 L["Settings_Threshold_Fixed_Enable"] = "고정 된 상한 임계 값을 사용 :"

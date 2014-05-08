@@ -1,17 +1,15 @@
 -- Default english localization
 local debug = true
-local L = Apollo.GetPackage("GeminiLocale-1.0").tPackage:NewLocale("PurchaseConfirmation", "enUS", true, not debug)
+local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:NewLocale("PurchaseConfirmation", "enUS", true, not debug)
 
 if not L then
 	return
 end
 
 	--[[ CONFIRMATION DIALOG ]]
-
+	
 -- Main window labels
 L["Dialog_WindowTitle"] = "Confirm Purchase"
-L["Dialog_ButtonConfirm"] = "Purchase"
-L["Dialog_ButtonCancel"] = "Cancel"
 L["Dialog_ButtonDetails"] = "Details"
 
 -- Detail window foldout labels
@@ -22,22 +20,14 @@ L["Dialog_DetailsLabel_EmptyCoffers"] = "Empty coffers"
 -- Detail window foldout tooltips
 L["Dialog_DetailsTooltip_Breached"] = "Threshold is breached"
 L["Dialog_DetailsTooltip_NotBreached"] = "Threshold is not breached"
+L["Dialog_DetailsTooltip_Disabled"] = "Threshold is disabled"
 
 
 	--[[ SETTINGS WINDOW ]]
 
 -- Main window labels
 L["Settings_WindowTitle"] = "PurchaseConfirmation Settings"
-L["Settings_ButtonAccept"] = "Accept"
-L["Settings_ButtonCancel"] = "Cancel"
 L["Settings_Balance"] = "Current balance"
-
--- Shortish currency descriptions, that will fit the tab-button layout
-L["Settings_TabCurrency_Credits"] = "Credits"
-L["Settings_TabCurrency_Renown"] = "Renown"
-L["Settings_TabCurrency_Prestige"] = "Prestige"
-L["Settings_TabCurrency_CraftingVouchers"] = "Crafting"
-L["Settings_TabCurrency_ElderGems"] = "Elder Gems"
 
 -- Individual threshold labels and descriptions
 L["Settings_Threshold_Fixed_Enable"] = "Enable \"fixed upper\" threshold:"
