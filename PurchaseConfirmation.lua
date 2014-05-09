@@ -127,6 +127,8 @@ end
 -- Called when XML doc is fully loaded/parsed. Create and configure forms.
 function PurchaseConfirmation:OnDocLoaded()
 	logenter("OnDocLoaded")
+	
+	local Localization = Apollo.GetPackage("PurchaseConfirmation:Localization").tPackage
 		
 	-- Check that XML document is properly loaded
 	if self.xmlDoc == nil or not self.xmlDoc:IsLoaded() then

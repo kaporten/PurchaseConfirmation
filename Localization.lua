@@ -13,12 +13,11 @@
 		Currency names on the settings tab	
 ]]
 
+local Localization = {}
+Apollo.RegisterPackage(Localization, "PurchaseConfirmation:Localization", 1, {"Gemini:Locale-1.0"})
 
-Localization = {}
-
-
-function Localization.LocalizeDialog(wnd)
-	L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
+function Localization.LocalizeDialog(wnd)	
+	local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
 
 	wnd:FindChild("DialogArea"):FindChild("Title"):SetText(L["Dialog_WindowTitle"])
 	wnd:FindChild("DialogArea"):FindChild("DetailsButton"):SetText("   " .. L["Dialog_ButtonDetails"]) -- 3 spaces as leftpadding
@@ -29,11 +28,15 @@ function Localization.LocalizeDialog(wnd)
 end
 
 function Localization.LocalizeSettings(wnd)
+	local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
+
 	wnd:FindChild("WindowTitle"):SetText(L["Settings_WindowTitle"])
 	wnd:FindChild("BalanceLabel"):SetText(L["Settings_Balance"])
 end
 
 function Localization.LocalizeSettingsTab(wnd)
+	local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
+
 	wnd:FindChild("FixedSection"):FindChild("EnableButtonLabel"):SetText(L["Settings_Threshold_Fixed_Enable"])
 	wnd:FindChild("FixedSection"):FindChild("Description"):SetText(L["Settings_Threshold_Fixed_Description"])
 
@@ -46,4 +49,5 @@ function Localization.LocalizeSettingsTab(wnd)
 	wnd:FindChild("EmptyCoffersSection"):FindChild("EnableButtonLabel"):SetText(L["Settings_Threshold_EmptyCoffers_Enable"])
 	wnd:FindChild("EmptyCoffersSection"):FindChild("Description"):SetText(L["Settings_Threshold_EmptyCoffers_Description"])
 end
-	
+
+
