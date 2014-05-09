@@ -29,7 +29,7 @@ local ADDON_NAME = "PurchaseConfirmation"
 local ADDON_VERSION = {1, 0, 0} -- major, minor, bugfix
 
 -- Should be false/"ERROR" for release builds
-local DEBUG_MODE = true -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
+local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
 local LOG_LEVEL = "ERROR" -- Only log errors, not info/debug/warn
 
 -- Vendor addon references
