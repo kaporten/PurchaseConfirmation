@@ -26,7 +26,7 @@ local log
  
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = {0, 9, 2} -- major, minor, bugfix
+local ADDON_VERSION = {1, 0, 0} -- major, minor, bugfix
 
 -- Should be false/"ERROR" for release builds
 local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
@@ -37,6 +37,8 @@ local VENDOR_ADDON_NAME = "Vendor" -- Used when loading/declaring dependencies t
 local VENDOR_BUY_TAB_NAME = "VendorTab0" -- Used to check if the Vendor used to buy or sell etc
 
 local DETAIL_WINDOW_HEIGHT = 100
+
+local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation", true)
 
 
 -- Copied from the Util addon. Used to set item quality borders on the confirmation dialog
@@ -85,16 +87,16 @@ function PurchaseConfirmation:OnLoad()
 		Supported currencies. Fields:
 			eType = currency enum type used by Apollo API
 			strName = hardcoded name for the currency, to be referenced in saved config (to disconnect from enum ordering)
-			strDisplay = display-title to be used on the left-right settings selection buttons
 			strDescription = description of the currency type -- not used anywhere yet
 			wndPanel = handle to settings window panel for this currency, to be populated in OnDocLoaded
 	]]
-	self.seqCurrencies = {																		-- avoid buggy #CRB_Credits#
-		{eType = Money.CodeEnumCurrencyType.Credits,			strName = "Credits",			strDisplay = "Credits",		strDescription = Apollo.GetString("CRB_Credits_Desc")},
-		{eType = Money.CodeEnumCurrencyType.Renown,				strName = "Renown",				strDisplay = "Renown",		strDescription = Apollo.GetString("CRB_Renown_Desc")},
-		{eType = Money.CodeEnumCurrencyType.Prestige,			strName = "Prestige",			strDisplay = "Prestige",	strDescription = Apollo.GetString("CRB_Prestige_Desc")},
-		{eType = Money.CodeEnumCurrencyType.CraftingVouchers,	strName = "CraftingVouchers",	strDisplay = "Crafting",	strDescription = Apollo.GetString("CRB_Crafting_Voucher_Desc")},
-		{eType = Money.CodeEnumCurrencyType.ElderGems,			strName = "ElderGems",			strDisplay = "Elder Gems",	strDescription = Apollo.GetString("CRB_Elder_Gems_Desc")},
+	-- Order of elements must match Settings GUI button layout
+	self.seqCurrencies = {																		
+		{eType = Money.CodeEnumCurrencyType.Credits,			strName = "Credits",			strDescription = Apollo.GetString("CRB_Credits_Desc")},
+		{eType = Money.CodeEnumCurrencyType.Renown,				strName = "Renown",				strDescription = Apollo.GetString("CRB_Renown_Desc")},
+		{eType = Money.CodeEnumCurrencyType.Prestige,			strName = "Prestige",			strDescription = Apollo.GetString("CRB_Prestige_Desc")},
+		{eType = Money.CodeEnumCurrencyType.CraftingVouchers,	strName = "CraftingVouchers",	strDescription = Apollo.GetString("CRB_Crafting_Voucher_Desc")},
+		{eType = Money.CodeEnumCurrencyType.ElderGems,			strName = "ElderGems",			strDescription = Apollo.GetString("CRB_Elder_Gems_Desc")},
 	}
 	self.currentCurrencyIdx = 1 -- Default, show idx 1 on settings
 		
@@ -125,6 +127,8 @@ end
 -- Called when XML doc is fully loaded/parsed. Create and configure forms.
 function PurchaseConfirmation:OnDocLoaded()
 	logenter("OnDocLoaded")
+	
+	local Localization = Apollo.GetPackage("PurchaseConfirmation:Localization").tPackage
 		
 	-- Check that XML document is properly loaded
 	if self.xmlDoc == nil or not self.xmlDoc:IsLoaded() then
@@ -134,16 +138,21 @@ function PurchaseConfirmation:OnDocLoaded()
 	end
 		
 	-- Load confirmation dialog form 
-	self.wndConfirmDialog = Apollo.LoadForm(self.xmlDoc, "ConfirmPurchaseDialogForm", nil, self)
+	self.wndConfirmDialog = Apollo.LoadForm(self.xmlDoc, "DialogForm", nil, self)
+	Localization.LocalizeDialog(self.wndConfirmDialog)
 	if self.wndConfirmDialog == nil then
 		Apollo.AddAddonErrorText(self, "Could not load the ConfirmDialog window")
 		logerror("OnDocLoaded", "wndConfirmDialog is nil!")
 		return
 	end
 	self.wndConfirmDialog:Show(false, true)	
+	
+	-- Dialog form has details-foldout enabled in Hudson for editability. Collapse it by default
+	self:OnDetailsButtonUncheck()
 
 	-- Load settings dialog form
 	self.wndSettings = Apollo.LoadForm(self.xmlDoc, "SettingsForm", nil, self)
+	Localization.LocalizeSettings(self.wndSettings)
 	if self.wndSettings == nil then
 		Apollo.AddAddonErrorText(self, "Could not load the SettingsForm window")
 		logerror("OnDocLoaded", "wndSettings is nil!")
@@ -155,11 +164,11 @@ function PurchaseConfirmation:OnDocLoaded()
 	for i,tCurrency in ipairs(self.seqCurrencies) do
 		-- Set text on header button (size of seqCurrencies must match actual button layout on SettingsForm!)
 		local btn = self.wndSettings:FindChild("CurrencyBtn" .. i)
-		btn:SetText(tCurrency.strDisplay)
 		btn:SetData(tCurrency)
 	
 		-- Load "individual currency panel" settings forms, and spawn one for each currency type
-		tCurrency.wndPanel = Apollo.LoadForm(self.xmlDoc, "CurrencyPanelForm", self.wndSettings:FindChild("CurrencyPanelArea"), self)
+		tCurrency.wndPanel = Apollo.LoadForm(self.xmlDoc, "SettingsCurrencyTabForm", self.wndSettings:FindChild("CurrencyTabArea"), self)
+		Localization.LocalizeSettingsTab(tCurrency.wndPanel)
 
 		if tCurrency.wndPanel == nil then
 			Apollo.AddAddonErrorText(self, "Could not load the CurrencyPanelForm window")
@@ -430,15 +439,15 @@ function PurchaseConfirmation:UpdateConfirmationDetailsLine(tItemData, tThreshol
 		wndLine:FindChild("Label"):SetTextColor("xkcdLightGrey")
 		wndLine:FindChild("Amount"):SetTextColor("xkcdLightGrey")
 		if tThreshold.bBreached then
-			wndLine:SetTooltip("Threshold is breached")
+			wndLine:SetTooltip(L["Dialog_DetailsTooltip_Breached"])
 		else
-			wndLine:SetTooltip("Threshold is not breached")
+			wndLine:SetTooltip(L["Dialog_DetailsTooltip_NotBreached"])
 		end
 	else
 		wndLine:FindChild("Icon"):Show(false)
 		wndLine:FindChild("Label"):SetTextColor("xkcdMediumGrey")
 		wndLine:FindChild("Amount"):SetTextColor("xkcdMediumGrey")
-		wndLine:SetTooltip("Threshold is disabled")
+		wndLine:SetTooltip(L"Threshold is disabled")
 	end
 	logexit("UpdateConfirmationDetailsLine")
 end
