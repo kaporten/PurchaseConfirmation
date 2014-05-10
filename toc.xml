@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Addon Author="Porten" APIVersion="8" Name="PurchaseConfirmation" Description="Vendor purchase confirmation with automatic throttling for what is considered expensive" Version="">
     <!-- Libraries -->
-    <Script Name="libs/inspect-1.2/inspect.lua"/>
-    <Script Name="libs/GeminiLogging-1.2/GeminiLogging.lua"/>
-    <Script Name="libs/GeminiLocale-1.0/GeminiLocale.lua"/>
+    <Script Name="Libs/Inspect-1.2/inspect.lua"/>
+    <Script Name="Libs/GeminiLogging-1.2/GeminiLogging.lua"/>
+    <Script Name="Libs/GeminiLocale-1.0/GeminiLocale.lua"/>
     <!-- Localization -->
     <Script Name="Localization.lua"/>
-    <Script Name="locale/enUS.lua"/>
-    <Script Name="locale/deDE.lua"/>
-    <Script Name="locale/frFR.lua"/>
-    <Script Name="locale/koKR.lua"/>
+    <Script Name="Locale/enUS.lua"/>
+    <Script Name="Locale/deDE.lua"/>
+    <Script Name="Locale/frFR.lua"/>
+    <Script Name="Locale/koKR.lua"/>
     <!-- Addon itself -->
     <Script Name="PurchaseConfirmation.lua"/>
     <Script Name="Settings.lua"/>
