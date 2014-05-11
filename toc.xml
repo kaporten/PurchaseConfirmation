@@ -11,8 +11,8 @@
     <Script Name="Locale/frFR.lua"/>
     <Script Name="Locale/koKR.lua"/>
     <!-- Addons to hook -->
-    <Script Name="Hooks/VendorPurchase.lua"/>
-    <Form Name="Hooks/VendorPurchase.xml"/>
+    <Script Name="VendorPurchase.lua"/>
+    <Form Name="VendorPurchase.xml"/>
     <!-- Addon itself -->
     <Script Name="PurchaseConfirmation.lua"/>
     <Script Name="Settings.lua"/>

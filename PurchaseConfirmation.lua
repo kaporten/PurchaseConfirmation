@@ -30,24 +30,15 @@ local ADDON_VERSION = {2, 0, 0} -- major, minor, bugfix
 
 -- Should be false/"ERROR" for release builds
 local DEBUG_MODE = true -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
-local LOG_LEVEL = "ERROR" -- Only log errors, not info/debug/warn
+local LOG_LEVEL = "INFO" -- Only log errors, not info/debug/warn
 
 local DETAIL_WINDOW_HEIGHT = 100
 
 local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation", true)
 
-
--- Copied from the Util addon. Used to set item quality borders on the confirmation dialog
--- TODO: Figure out how to use list in Util addon itself.
-local qualityColors = {
-	ApolloColor.new("ItemQuality_Inferior"),
-	ApolloColor.new("ItemQuality_Average"),
-	ApolloColor.new("ItemQuality_Good"),
-	ApolloColor.new("ItemQuality_Excellent"),
-	ApolloColor.new("ItemQuality_Superb"),
-	ApolloColor.new("ItemQuality_Legendary"),
-	ApolloColor.new("ItemQuality_Artifact"),
-	ApolloColor.new("00000000")
+-- Names of addon-hook modules to load 
+local moduleNames = {
+	"PurchaseConfirmation:Modules:VendorPurchase"
 }
 
 -- Standard object instance creation
@@ -103,10 +94,6 @@ function PurchaseConfirmation:OnLoad()
 		self.tSettings = self:DefaultSettings()
 	end
 	
-	-- Hook into supported Addons
-	local vendorHook = Apollo.GetPackage("PurchaseConfirmation:Addons:Vendor").tPackage:Register()
-
-	
 	-- Slash commands to manually open the settings window
 	Apollo.RegisterSlashCommand("purchaseconfirmation", "OnConfigure", self)
 	Apollo.RegisterSlashCommand("purconf", "OnConfigure", self)
@@ -132,14 +119,14 @@ function PurchaseConfirmation:OnDocLoaded()
 	end
 		
 	-- Load confirmation dialog form 
-	self.wndConfirmDialog = Apollo.LoadForm(self.xmlDoc, "DialogForm", nil, self)
-	Localization.LocalizeDialog(self.wndConfirmDialog)
-	if self.wndConfirmDialog == nil then
+	self.wndDialog = Apollo.LoadForm(self.xmlDoc, "DialogForm", nil, self)
+	Localization.LocalizeDialog(self.wndDialog)
+	if self.wndDialog == nil then
 		Apollo.AddAddonErrorText(self, "Could not load the ConfirmDialog window")
-		logerror("OnDocLoaded", "wndConfirmDialog is nil!")
+		logerror("OnDocLoaded", "wndDialog is nil!")
 		return
 	end
-	self.wndConfirmDialog:Show(false, true)	
+	self.wndDialog:Show(false, true)	
 	
 	-- Dialog form has details-foldout enabled in Hudson for editability. Collapse it by default
 	self:OnDetailsButtonUncheck()
@@ -187,6 +174,13 @@ function PurchaseConfirmation:OnDocLoaded()
 		
 	-- Now that forms are loaded, remove XML doc for gc
 	self.xmlDoc = nil
+	
+	
+	-- Load modules
+	self.modules = {}
+	for k,v in ipairs(moduleNames) do
+		self.modules[v] = Apollo.GetPackage(v).tPackage:new():Init()
+	end
 	
 	-- If running debug-mode, warn user (should never make it into production)
 	if DEBUG_MODE == true then
@@ -244,94 +238,19 @@ function PurchaseConfirmation:GetPunyLimit(tSettings)
 	return monPunyLimit
 end
 
---- Price for current purchase is unsafe: show confirmation dialogue
--- Configure all relevant fields & display properties in confirmation dialog before showing
--- @param tThresholds Detailed data on which thresholds were breached
--- @param tCallbackData Addonhook-specific callback data
-function PurchaseConfirmation:RequestConfirmation(tThresholds, tCallbackData)
-	self.log:debug("PurchaseConfirmation.RequestConfirmation: enter method")
-	
-	wndConfirmDialog:SetData(tCallbackData)
-
-		
-	--[[
-		The dialog contains an area called "VendorSpecificArea" which will
-		contain detailed info about the current purchase to confirm.
-		The contents of this area is to be provided by the addonhook which
-		initiated the purchase confirmation BASIC DIALOG DATA ]]
-
-	-- Basic info
-	-- Hide all vendor-specific info on dialog
-	local children = wndMainDialogArea:FindChild("DialogArea"):FindChild("VendorSpecificArea"):GetChildren()
-	for _,v in pairs(children) do
-		v:Show(false, true)
-	end
-	
-	-- ... except vendor-specific info for the hooked addon which produced this
-	local wndVendorSpecificArea = tCallbackData.fUpdateDetailsWindow(tCallbackData.data)
-	wndVendorSpecificArea:Show(true, true)
-	
-	
-	local wndMainDialogArea = wndDialog:FindChild("DialogArea")
-	
-
-	-- Only show stack size count if we're buying more a >1 size stack
-	if (tItemData.nStackSize > 1) then
-		wndMainDialogArea:FindChild("StackSize"):SetText(tItemData.nStackSize)
-		wndMainDialogArea:FindChild("StackSize"):Show(true, true)
-	else
-		wndMainDialogArea:FindChild("StackSize"):Show(false, true)
-	end
-	
-	-- Extract item quality
-	local eQuality = tonumber(Item.GetDetailedInfo(tItemData).tPrimary.eQuality)
-
-	-- Add pixie quality-color border to the ItemIcon element
-	local tPixieOverlay = {
-		strSprite = "UI_BK3_ItemQualityWhite",
-		loc = {fPoints = {0, 0, 1, 1}, nOffsets = {0, 0, 0, 0}},
-		cr = qualityColors[math.max(1, math.min(eQuality, #qualityColors))]
-	}	
-	wndMainDialogArea:FindChild("ItemIcon"):AddPixie(tPixieOverlay)
-
-	-- Update tooltip to match current item
-	local itemArea = wndMainDialogArea:FindChild("ItemArea")
-	itemArea:SetData(tItemData)
-	vendor:OnVendorListItemGenerateTooltip(itemArea, itemArea) -- Yes, params are switched!
-
-		
-	-- [[ DETAILED THRESHOLD AREA ]]
-	
-	-- Set detailed dialog data. For now, assume Fixed,Average,EmptyCoffers ordering in input
-	local wndDetails = self.wndConfirmDialog:FindChild("DetailsArea")
-	addon:UpdateConfirmationDetailsLine(tItemData, tThresholds.fixed, wndDetails:FindChild("ThresholdFixed"))
-	addon:UpdateConfirmationDetailsLine(tItemData, tThresholds.average, wndDetails:FindChild("ThresholdAverage"))
-	addon:UpdateConfirmationDetailsLine(tItemData, tThresholds.emptyCoffers, wndDetails:FindChild("ThresholdEmptyCoffers"))
-	
-	
-	--[[
-		Deactivate main vendor window while waiting for input, to avoid
-		multiple unconfirmed purchases interfering with eachother.
-		Remember to enable Vendor again, for any possible dialog exit-path!
-		Apollo.GetAddon(VENDOR_ADDON_NAME).wndVendor:Enable(false)
-		]]
-
-	wndDialog:ToFront()
-	wndDialog:Show(true)
-
-end
-
 --- Called by addon-hook when a purchase is taking place.
 -- Checks all thresholds:
 --  1. If puny limit is enabled/breached, the purchase will be completed without further action.
 --  2. If any threshold is enabled/breached, the confirmation dialog will be shown
 -- @param monPrice Price of current purchase
 -- @param tCallbackData Addonhook-specific callback data
-function PurchaseConfirmation:PriceCheck(monPrice, tCallbackData)
+function PurchaseConfirmation:PriceCheck(monPrice, tCallbackData, tCurrency)
 	self.log:debug("PurchaseConfirmation.PriceCheck: enter method")
 
+	local addon = Apollo.GetAddon("PurchaseConfirmation")
+	
 	-- Get local ref to currency-specific threshold settings
-	local tSettings = self.tSettings[tCurrency.strName]
+	local tSettings = addon.tSettings[tCurrency.strName]
 	
 	-- Check if price is below puny limit
 	if tSettings.tPuny.bEnabled then
@@ -366,7 +285,7 @@ function PurchaseConfirmation:PriceCheck(monPrice, tCallbackData)
 	-- Check all thresholds in order, register breach status on threshold table
 	local bRequestConfirmation = false
 	for _,v in pairs(tThresholds) do
-		v.bBreached = self:IsThresholdBreached(v, monPrice)		
+		v.bBreached = addon:IsThresholdBreached(v, monPrice)		
 		
 		-- Track if any of them were breached
 		if v.bBreached then
@@ -376,14 +295,57 @@ function PurchaseConfirmation:PriceCheck(monPrice, tCallbackData)
 
 	-- If confirmation is required, show dialog and DO NOT proceed to confirm purchase	
 	if bRequestConfirmation then
-		self:RequestConfirmation(tThresholds, monPrice, tCallbackData)
+		addon:RequestConfirmation(tThresholds, monPrice, tCurrency, tCallbackData)
 		return 
 	end
 	
 	-- No thresholds breached, just update price history and complete purchase
-	self:UpdateAveragePriceHistory(tSettings, monPrice)
-	self:CompletePurchase(tCallbackData)
+	addon:UpdateAveragePriceHistory(tSettings, monPrice)
+	addon:CompletePurchase(tCallbackData)
 end
+
+
+--- Price for current purchase is unsafe: show confirmation dialogue
+-- Configure all relevant fields & display properties in confirmation dialog before showing
+-- @param tThresholds Detailed data on which thresholds were breached
+-- @param tCallbackData Addonhook-specific callback data
+function PurchaseConfirmation:RequestConfirmation(tThresholds, monPrice, tCurrency, tCallbackData)
+
+	local addon = Apollo.GetAddon("PurchaseConfirmation")
+
+	-- Prepare central details area	
+	local wndDetails = tCallbackData.module:PrepareDialogDetails(monPrice, tCallbackData)
+	
+	-- Hide all detail children
+	local children = addon.wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea"):GetChildren()
+	for _,v in pairs(children) do
+		-- ... except vendor-specific info for the module which caused this price check
+		v:Show(v == wndDetails, true)
+	end
+	wndDetails:Show(true, true)
+	
+		
+	-- Prepare foldout area
+	
+	-- Set detailed dialog data. For now, assume Fixed,Average,EmptyCoffers ordering in input
+	local wndFoldout = self.wndDialog:FindChild("FoldoutArea")
+	addon:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdFixed"), 		tThresholds.fixed, 			tCurrency)
+	addon:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdAverage"),		tThresholds.average, 		tCurrency)
+	addon:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdEmptyCoffers"), 	tThresholds.emptyCoffers, 	tCurrency)
+	
+	
+	--[[
+		Deactivate main vendor window while waiting for input, to avoid
+		multiple unconfirmed purchases interfering with eachother.
+		Remember to enable Vendor again, for any possible dialog exit-path!
+		Apollo.GetAddon(VENDOR_ADDON_NAME).wndVendor:Enable(false)
+	]]
+
+	addon.wndDialog:ToFront()
+	addon.wndDialog:Show(true)
+end
+
+
 
 
 --- Called when a purchase should be fully completed against "bakcend" addon.
@@ -422,10 +384,10 @@ function PurchaseConfirmation:UpdateAveragePriceHistory(tSettings, monPrice)
 end
 
 -- Sets current display values on a single "details line" on the confirmation dialog
-function PurchaseConfirmation:UpdateConfirmationDetailsLine(tItemData, tThreshold, wndLine)
+function PurchaseConfirmation:UpdateConfirmationDetailsLine(wndLine, tThreshold, tCurrency)
 	logenter("UpdateConfirmationDetailsLine")
 	wndLine:FindChild("Amount"):SetAmount(tThreshold.monThreshold, true)
-	wndLine:FindChild("Amount"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
+	wndLine:FindChild("Amount"):SetMoneySystem(tCurrency.eType)
 
 	if tThreshold.bEnabled then
 		wndLine:FindChild("Icon"):Show(tThreshold.bBreached)
@@ -478,11 +440,11 @@ function PurchaseConfirmation:OnConfirmPurchase()
 	logenter("OnConfirmPurchase")
 	
 	-- Hide dialog and register confirmed purchase
-	self.wndConfirmDialog:Show(false, true)
+	self.wndDialog:Show(false, true)
 	--Apollo.GetAddon(VENDOR_ADDON_NAME).wndVendor:Enable(true)
 	
 	-- Extract item being purchased, and delegate to Vendor
-	local tItemData = self.wndConfirmDialog:GetData()
+	local tItemData = self.wndDialog:GetData()
 	self:ConfirmPurchase(tItemData)
 
 	logexit("OnConfirmPurchase")
@@ -491,7 +453,7 @@ end
 -- when the Cancel button is clicked
 function PurchaseConfirmation:OnCancelPurchase()
 	logenter("OnCancelPurchase")
-	self.wndConfirmDialog:Show(false, true)
+	self.wndDialog:Show(false, true)
 	--Apollo.GetAddon(VENDOR_ADDON_NAME).wndVendor:Enable(true)
 	logexit("OnCancelPurchase")
 end
@@ -509,12 +471,12 @@ function PurchaseConfirmation:OnDetailsButtonCheck( wndHandler, wndControl, eMou
 	logenter("OnDetailsButtonCheck")
 	
 	-- Resize the main window frame so that it is possible to drag it around via the hidden details section
-	local left, top, right, bottom = self.wndConfirmDialog:GetAnchorOffsets()
+	local left, top, right, bottom = self.wndDialog:GetAnchorOffsets()
 	logdebug("OnDetailsButtonCheck", "left="..left..", top="..top..", right="..right..", bottom="..bottom)
 	bottom = bottom + DETAIL_WINDOW_HEIGHT
-	self.wndConfirmDialog:SetAnchorOffsets(left, top, right, bottom)
+	self.wndDialog:SetAnchorOffsets(left, top, right, bottom)
 
-	local details = self.wndConfirmDialog:FindChild("DetailsArea")
+	local details = self.wndDialog:FindChild("DetailsArea")
 	details:Show(true, true)
 	logexit("OnDetailsButtonCheck")
 end
@@ -524,13 +486,13 @@ function PurchaseConfirmation:OnDetailsButtonUncheck( wndHandler, wndControl, eM
 	logenter("OnDetailsButtonUncheck")
 
 	-- Resize the main window frame so that it is not possible to drag it around via the hidden details section
-	local left, top, right, bottom = self.wndConfirmDialog:GetAnchorOffsets()
+	local left, top, right, bottom = self.wndDialog:GetAnchorOffsets()
 	logdebug("OnDetailsButtonUncheck", "left="..left..", top="..top..", right="..right..", bottom="..bottom)
 	bottom = bottom - DETAIL_WINDOW_HEIGHT
-	self.wndConfirmDialog:SetAnchorOffsets(left, top, right, bottom)
+	self.wndDialog:SetAnchorOffsets(left, top, right, bottom)
 	
-	local details = self.wndConfirmDialog:FindChild("DetailsArea")
-	details:Show(false, true)
+	local foldout = self.wndDialog:FindChild("FoldoutArea")
+	foldout:Show(false, true)
 	logexit("OnDetailsButtonUncheck")
 end
 

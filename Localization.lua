@@ -22,9 +22,9 @@ function Localization.LocalizeDialog(wnd)
 	wnd:FindChild("DialogArea"):FindChild("Title"):SetText(L["Dialog_WindowTitle"])
 	wnd:FindChild("DialogArea"):FindChild("DetailsButton"):SetText("   " .. L["Dialog_ButtonDetails"]) -- 3 spaces as leftpadding
 
-	wnd:FindChild("DetailsArea"):FindChild("ThresholdFixed"):FindChild("Label"):SetText(L["Dialog_DetailsLabel_Fixed"])
-	wnd:FindChild("DetailsArea"):FindChild("ThresholdAverage"):FindChild("Label"):SetText(L["Dialog_DetailsLabel_Average"])
-	wnd:FindChild("DetailsArea"):FindChild("ThresholdEmptyCoffers"):FindChild("Label"):SetText(L["Dialog_DetailsLabel_EmptyCoffers"])
+	wnd:FindChild("FoldoutArea"):FindChild("ThresholdFixed"):FindChild("Label"):SetText(L["Dialog_DetailsLabel_Fixed"])
+	wnd:FindChild("FoldoutArea"):FindChild("ThresholdAverage"):FindChild("Label"):SetText(L["Dialog_DetailsLabel_Average"])
+	wnd:FindChild("FoldoutArea"):FindChild("ThresholdEmptyCoffers"):FindChild("Label"):SetText(L["Dialog_DetailsLabel_EmptyCoffers"])
 end
 
 function Localization.LocalizeSettings(wnd)
