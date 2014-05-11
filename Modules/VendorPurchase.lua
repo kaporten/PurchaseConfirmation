@@ -38,10 +38,12 @@ end
 function VendorPurchase:Init()
 	-- Grab addon references for later use
 	self.vendor = Apollo.GetAddon("Vendor") -- real Vendor to hook
-	self.addon = Apollo.GetAddon("PurchaseConfirmation") -- main addon, calling the shots
+	local addon = Apollo.GetAddon("PurchaseConfirmation") -- main addon, calling the shots
 	
 	-- Store log ref for easy access 
-	self.log = self.addon.log
+	self.log = addon.log
+	
+	self.log:debug("VendorPurchase.Init: enter method")
 
 	-- Hook into Vendor
 	self.hook = self.vendor.FinalizeBuy -- store ref to original function
@@ -53,41 +55,34 @@ function VendorPurchase:Init()
 	-- TODO: Test how this plays out with 2 vendors in close proximity (open both, move away from one)
 	Apollo.RegisterEventHandler("CloseVendorWindow", "OnCancelPurchase", addon)
 	
+	self.xmlDoc = XmlDoc.CreateFromFile("Modules/VendorPurchase.xml")
+	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
+	
 	return self
 end
 
-function VendorPurchase:PrepareDialogDetails(wndParent, tCallbackData, fDialogDetailsReady)
+function VendorPurchase:UpdateDialogDetails(monPrice, tCallbackData)
 	local addon = Apollo.GetAddon("PurchaseConfirmation") -- PurchaseConfirmation main adon
 	local module = addon.modules[MODULE_NAME] -- VendorPurchase module
-
-	-- Async lazy-loading of form on first hit
-	if module.wnd == nil then
-		-- Store parameters for reuse in delayed invocation
-		module.pendingPriceCheckData = {wndParent, tCallbackData, fDialogDetailsReady}
-		
-		-- Initiate load of XML document
-		module.xmlDoc = XmlDoc.CreateFromFile("VendorPurchase.xml")
-		module.xmlDoc:RegisterCallback("OnDocLoaded", module)
-		
-		-- Await 2nd call, once form is loaded
-		return 
-	end
 	
-	local tItemData = tCallbackData.data
+	module.log:debug("VendorPurchase.PrepareDialogDetails: enter method")
+
+	local tItemData = tCallbackData.hookParams
+	local wnd = module.wnd
 	
 	-- Set basic info on details area
-	module.wnd:FindChild("ItemName"):SetText(tItemData.strName)
-	module.wnd:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
-	module.wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
-	module.wnd:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
-	module.wnd:FindChild("CantUse"):Show(VendorPurchase:HelperPrereqFailed(tItemData))
+	wnd:FindChild("ItemName"):SetText(tItemData.strName)
+	wnd:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
+	wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
+	wnd:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
+	wnd:FindChild("CantUse"):Show(module.vendor:HelperPrereqFailed(tItemData))
 	
 	-- Only show stack size count if we're buying more a >1 size stack
 	if (tItemData.nStackSize > 1) then
-		module.wnd:FindChild("StackSize"):SetText(tItemData.nStackSize)
-		module.wnd:FindChild("StackSize"):Show(true, true)
+		wnd:FindChild("StackSize"):SetText(tItemData.nStackSize)
+		wnd:FindChild("StackSize"):Show(true, true)
 	else
-		module.wnd:FindChild("StackSize"):Show(false, true)
+		wnd:FindChild("StackSize"):Show(false, true)
 	end
 	
 	-- Extract item quality
@@ -98,41 +93,40 @@ function VendorPurchase:PrepareDialogDetails(wndParent, tCallbackData, fDialogDe
 		strSprite = "UI_BK3_ItemQualityWhite",
 		loc = {fPoints = {0, 0, 1, 1}, nOffsets = {0, 0, 0, 0}},
 		cr = qualityColors[math.max(1, math.min(eQuality, #qualityColors))]
-	}	
-	module.wnd:FindChild("ItemIcon"):AddPixie(tPixieOverlay)
+	}
+	wnd:FindChild("ItemIcon"):DestroyAllPixies()
+	wnd:FindChild("ItemIcon"):AddPixie(tPixieOverlay)
 
 	-- Update tooltip to match current item
-	module.wnd:SetData(tItemData)	
+	wnd:SetData(tItemData)	
 	module.vendor:OnVendorListItemGenerateTooltip(self.wnd, self.wnd)
-	
-	-- Dialog details are prepared, call main-addon function to show dialog	
-	fDialogDetailsReady(wnd)
+
+	return wnd
 end
 
 
 function VendorPurchase:OnDocLoaded()
+	local addon = Apollo.GetAddon("PurchaseConfirmation") -- PurchaseConfirmation main adon
+	local module = addon.modules[MODULE_NAME] -- VendorPurchase module
+		
 	-- Check that XML document is properly loaded
-	if self.xmlDoc == nil or not self.xmlDoc:IsLoaded() then
-		Apollo.AddAddonErrorText(self, "XML document was not loaded")
-		self.log:error("XML document was not loaded")
+	if module.xmlDoc == nil or not module.xmlDoc:IsLoaded() then
+		--Apollo.AddAddonErrorText(module, "XML document was not loaded")
+		module.log:error("XML document was not loaded")
 		return
 	end
 		
 	-- Load Vendor item purchase details form
-	self.wnd = Apollo.LoadForm(self.xmlDoc, "ItemLineForm", wndParent, self)
-	if self.wndConfirmDialog == nil then
-		Apollo.AddAddonErrorText(self, "Could not load the ConfirmDialog window")
-		self.log:error("OnDocLoaded", "wndConfirmDialog is nil!")
+	local parent = addon.wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea")
+	module.wnd = Apollo.LoadForm(module.xmlDoc, "ItemLineForm", parent, module)
+	if module.wnd == nil then
+		Apollo.AddAddonErrorText(module, "Could not load the ConfirmDialog window")
+		self.log:error("OnDocLoaded: wndConfirmDialog is nil!")
 		return
 	end
 	
-	self.wnd:Show(false, true)	
-	self.xmlDoc = nil
-
-	local pendingPriceCheckData = self.pendingPriceCheckData
-	self.pendingPriceCheckData = nil
-	
-	self:PrepareDialogDetails(unpack(pendingPriceCheckData))
+	module.wnd:Show(true, true)	
+	module.xmlDoc = nil
 end
 
 
@@ -152,8 +146,9 @@ function VendorPurchase:InterceptPurchase(tItemData)
 	-- Prepare addon-specific callback data, used if/when the user confirms a purchase
 	local tCallbackData = {
 		module = module,
-		hook = self.hook,
-		data = tItemData,
+		hook = module.hook,
+		hookParams = tItemData,
+		hookedAddon = Apollo.GetAddon("Vendor")
 	}
 
 	--[[
@@ -189,11 +184,15 @@ function VendorPurchase:InterceptPurchase(tItemData)
 		Purchase type is supported. Initiate price-check.
 	]]
 	
-	-- Get price of current purchase
-	local monPrice = module:GetItemPrice(tItemData)
-	
+	-- Aggregated purchase data
+	local tPurchaseData = {
+		tCallbackData = tCallbackData,
+		tCurrency = tCurrency,
+		monPrice = module:GetItemPrice(tItemData),
+	}
+		
 	-- Request pricecheck
-	addon:PriceCheck(monPrice, tCallbackData, tCurrency)
+	addon:PriceCheck(tPurchaseData)
 end
 
 

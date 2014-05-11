@@ -29,7 +29,7 @@ local ADDON_NAME = "PurchaseConfirmation"
 local ADDON_VERSION = {2, 0, 0} -- major, minor, bugfix
 
 -- Should be false/"ERROR" for release builds
-local DEBUG_MODE = true -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
+local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
 local LOG_LEVEL = "INFO" -- Only log errors, not info/debug/warn
 
 local DETAIL_WINDOW_HEIGHT = 100
@@ -146,6 +146,7 @@ function PurchaseConfirmation:OnDocLoaded()
 		-- Set text on header button (size of seqCurrencies must match actual button layout on SettingsForm!)
 		local btn = self.wndSettings:FindChild("CurrencyBtn" .. i)
 		btn:SetData(tCurrency)
+		btn:SetTooltip(tCurrency.strDescription)
 	
 		-- Load "individual currency panel" settings forms, and spawn one for each currency type
 		tCurrency.wndPanel = Apollo.LoadForm(self.xmlDoc, "SettingsCurrencyTabForm", self.wndSettings:FindChild("CurrencyTabArea"), self)
@@ -242,15 +243,16 @@ end
 -- Checks all thresholds:
 --  1. If puny limit is enabled/breached, the purchase will be completed without further action.
 --  2. If any threshold is enabled/breached, the confirmation dialog will be shown
--- @param monPrice Price of current purchase
--- @param tCallbackData Addonhook-specific callback data
-function PurchaseConfirmation:PriceCheck(monPrice, tCallbackData, tCurrency)
+-- @param tPurchaseData Structure containing {monPrice, tCurrency, tCallbackData}
+function PurchaseConfirmation:PriceCheck(tPurchaseData)
 	self.log:debug("PurchaseConfirmation.PriceCheck: enter method")
 
 	local addon = Apollo.GetAddon("PurchaseConfirmation")
 	
 	-- Get local ref to currency-specific threshold settings
-	local tSettings = addon.tSettings[tCurrency.strName]
+	local tSettings = addon.tSettings[tPurchaseData.tCurrency.strName]
+	local tCurrency = tPurchaseData.tCurrency
+	local monPrice = tPurchaseData.monPrice
 	
 	-- Check if price is below puny limit
 	if tSettings.tPuny.bEnabled then
@@ -258,7 +260,7 @@ function PurchaseConfirmation:PriceCheck(monPrice, tCallbackData, tCurrency)
 		if monPunyLimit and monPrice < monPunyLimit then
 			-- Price is below puny-limit, complete purchase (without adding price to history etc)
 			self.log:info("Vendor.FinalizeBuy: Puny amount " .. monPrice .. " ignored")
-			self:CompletePurchase(tCallbackData)
+			self:CompletePurchase(tPurchaseData.tCallbackData)
 			return
 		end
 	end
@@ -295,13 +297,13 @@ function PurchaseConfirmation:PriceCheck(monPrice, tCallbackData, tCurrency)
 
 	-- If confirmation is required, show dialog and DO NOT proceed to confirm purchase	
 	if bRequestConfirmation then
-		addon:RequestConfirmation(tThresholds, monPrice, tCurrency, tCallbackData)
+		addon:RequestConfirmation(tPurchaseData, tThresholds)
 		return 
 	end
 	
 	-- No thresholds breached, just update price history and complete purchase
 	addon:UpdateAveragePriceHistory(tSettings, monPrice)
-	addon:CompletePurchase(tCallbackData)
+	addon:CompletePurchase(tPurchaseData.tCallbackData)
 end
 
 
@@ -309,43 +311,38 @@ end
 -- Configure all relevant fields & display properties in confirmation dialog before showing
 -- @param tThresholds Detailed data on which thresholds were breached
 -- @param tCallbackData Addonhook-specific callback data
-function PurchaseConfirmation:RequestConfirmation(tThresholds, monPrice, tCurrency, tCallbackData)
+function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
 
 	local addon = Apollo.GetAddon("PurchaseConfirmation")
 
+	local tCallbackData = tPurchaseData.tCallbackData
+	local monPrice = tPurchaseData.monPrice
+	local tCurrency = tPurchaseData.tCurrency
+	
 	-- Prepare central details area	
-	local wndDetails = tCallbackData.module:PrepareDialogDetails(monPrice, tCallbackData)
+	local wndDetails = tCallbackData.module:UpdateDialogDetails(monPrice, tCallbackData)
 	
 	-- Hide all detail children
 	local children = addon.wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea"):GetChildren()
 	for _,v in pairs(children) do
 		-- ... except vendor-specific info for the module which caused this price check
-		v:Show(v == wndDetails, true)
+		v:Show(false, true)
 	end
 	wndDetails:Show(true, true)
 	
-		
-	-- Prepare foldout area
-	
-	-- Set detailed dialog data. For now, assume Fixed,Average,EmptyCoffers ordering in input
+	-- Prepare foldout area	
 	local wndFoldout = self.wndDialog:FindChild("FoldoutArea")
 	addon:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdFixed"), 		tThresholds.fixed, 			tCurrency)
 	addon:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdAverage"),		tThresholds.average, 		tCurrency)
 	addon:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdEmptyCoffers"), 	tThresholds.emptyCoffers, 	tCurrency)
+		
+	-- Set full purchase on dialog window
+	addon.wndDialog:SetData(tPurchaseData)
 	
-	
-	--[[
-		Deactivate main vendor window while waiting for input, to avoid
-		multiple unconfirmed purchases interfering with eachother.
-		Remember to enable Vendor again, for any possible dialog exit-path!
-		Apollo.GetAddon(VENDOR_ADDON_NAME).wndVendor:Enable(false)
-	]]
-
+	-- Show dialog, await button click
 	addon.wndDialog:ToFront()
 	addon.wndDialog:Show(true)
 end
-
-
 
 
 --- Called when a purchase should be fully completed against "bakcend" addon.
@@ -357,12 +354,14 @@ function PurchaseConfirmation:CompletePurchase(tCallbackData)
 	if DEBUG_MODE == true then
 		Print("PurchaseConfirmation: purchase ignored!")
 	else
-		tCallbackData.hook(tCallbackData.data)	
+		tCallbackData.hook(tCallbackData.hookedAddon, tCallbackData.hookParams)
 	end	
 end
 
 
 function PurchaseConfirmation:UpdateAveragePriceHistory(tSettings, monPrice)
+	local addon = Apollo.GetAddon("PurchaseConfirmation")
+	
 	-- Add element to end of price history list
 	if tSettings.tAverage.seqPriceHistory == nil then tSettings.tAverage.seqPriceHistory = {} end
 	table.insert(tSettings.tAverage.seqPriceHistory, monPrice)
@@ -402,7 +401,7 @@ function PurchaseConfirmation:UpdateConfirmationDetailsLine(wndLine, tThreshold,
 		wndLine:FindChild("Icon"):Show(false)
 		wndLine:FindChild("Label"):SetTextColor("xkcdMediumGrey")
 		wndLine:FindChild("Amount"):SetTextColor("xkcdMediumGrey")
-		wndLine:SetTooltip(L"Threshold is disabled")
+		wndLine:SetTooltip(L["Threshold is disabled"])
 	end
 	logexit("UpdateConfirmationDetailsLine")
 end
@@ -436,26 +435,22 @@ end
 -----------------------------------------------------------------------------------------------
 
 -- when the Purchase button is clicked
-function PurchaseConfirmation:OnConfirmPurchase()
-	logenter("OnConfirmPurchase")
-	
+function PurchaseConfirmation:OnConfirmPurchase()	
 	-- Hide dialog and register confirmed purchase
 	self.wndDialog:Show(false, true)
-	--Apollo.GetAddon(VENDOR_ADDON_NAME).wndVendor:Enable(true)
 	
 	-- Extract item being purchased, and delegate to Vendor
-	local tItemData = self.wndDialog:GetData()
-	self:ConfirmPurchase(tItemData)
-
-	logexit("OnConfirmPurchase")
+	local tPurchaseData = self.wndDialog:GetData()
+	local tSettings = self.tSettings[tPurchaseData.tCurrency.strName]
+	
+	-- Purchase is confirmed, update history and complete against backend module
+	self:UpdateAveragePriceHistory(tSettings, tPurchaseData.monPrice)
+	self:CompletePurchase(tPurchaseData.tCallbackData)
 end
 
 -- when the Cancel button is clicked
 function PurchaseConfirmation:OnCancelPurchase()
-	logenter("OnCancelPurchase")
 	self.wndDialog:Show(false, true)
-	--Apollo.GetAddon(VENDOR_ADDON_NAME).wndVendor:Enable(true)
-	logexit("OnCancelPurchase")
 end
 
 -- Locates the supported currency config by its ID (rather than its name). Returns nil if not supported.
@@ -476,8 +471,8 @@ function PurchaseConfirmation:OnDetailsButtonCheck( wndHandler, wndControl, eMou
 	bottom = bottom + DETAIL_WINDOW_HEIGHT
 	self.wndDialog:SetAnchorOffsets(left, top, right, bottom)
 
-	local details = self.wndDialog:FindChild("DetailsArea")
-	details:Show(true, true)
+	local foldout = self.wndDialog:FindChild("FoldoutArea")
+	foldout:Show(true, true)
 	logexit("OnDetailsButtonCheck")
 end
 
