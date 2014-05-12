@@ -3,26 +3,21 @@
 ]]
 
 local PurchaseConfirmation = Apollo.GetAddon("PurchaseConfirmation")
+local log = PurchaseConfirmation.log
 
 -- Shows the Settings window, after populating it with current data.
 -- Invoked from main Addon list via Configure, or registered slash commands. 
 function PurchaseConfirmation:OnConfigure()
-	logenter("OnConfigure")
-	
 	-- Update values on GUI with current settings before showing
 	self:PopulateSettingsWindow()
 	self:UpdateBalance()
 
 	self.wndSettings:Show(true, true)
 	self.wndSettings:ToFront()
-	
-	logexit("OnConfigure")
 end
 
 -- Populates the settings window with current configuration values (for all currency types)
 function PurchaseConfirmation:PopulateSettingsWindow()
-	logenter("PopulateSettingsWindow")
-	
 	-- Loop over all supported currencytypes, populate each one with current settings
 	for _,currencyType in ipairs(self.seqCurrencies) do
 		local wndCurrency = currencyType.wndPanel
@@ -36,13 +31,10 @@ function PurchaseConfirmation:UpdateBalance()
 	local tCurrency = self.wndSettings:FindChild("CurrencySelectorSection"):GetRadioSelButton("PurchaseConfirmation_CurrencySelection"):GetData()
 	self.wndSettings:FindChild("Balance"):SetMoneySystem(tCurrency.eType)
 	self.wndSettings:FindChild("CurrentBalanceSection"):FindChild("Balance"):SetAmount(GameLib.GetPlayerCurrency(tCurrency.eType):GetAmount(), false)
-	logexit("PopulateSettingsWindow")
 end
 
 -- Populates the currency control form for a single currency-type
 function PurchaseConfirmation:PopulateSettingsWindowForCurrency(wndCurrencyControl, tSettings)
-	logenter("PopulateSettingsWindowForCurrency")
-	
 	--[[
 		For each individual field, check if a value exist in tSettings,
 		and set the value in the corresponding UI field.
@@ -67,14 +59,11 @@ function PurchaseConfirmation:PopulateSettingsWindowForCurrency(wndCurrencyContr
 	local punySection = wndCurrencyControl:FindChild("PunySection")
 	if tSettings.tPuny.bEnabled ~=nil then punySection:FindChild("EnableButton"):SetCheck(tSettings.tPuny.bEnabled) end
 	if tSettings.tPuny.monThreshold ~=nil then punySection:FindChild("Amount"):SetAmount(tSettings.tPuny.monThreshold, true) end
-	
-	logexit("PopulateSettingsWindowForCurrency")
 end
 
 -- Restores saved settings into the tSettings structure.
 -- Invoked during game load.
 function PurchaseConfirmation:RestoreSettings(tSavedData)
-	logenter("RestoreSettings")
 	--[[
 		To gracefully handle changes to the config-structure across different versions of savedata:
 		1) Prepare a set of global default values
@@ -90,7 +79,6 @@ function PurchaseConfirmation:RestoreSettings(tSavedData)
 	self:FillSettings_0_7(tSettings, tSavedData) -- ver 0.7 single-currency settings
 	self:FillSettings_0_8(tSettings, tSavedData) -- ver 0.8+ multi-currency settings
 	
-	logexit("RestoreSettings")
 	return tSettings
 end
 
@@ -194,19 +182,13 @@ end
 
 -- When the settings window is closed via Cancel, revert all changed values to current config
 function PurchaseConfirmation:OnCancelSettings()
-	logenter("OnCancelSettings")
-	
 	-- Hide settings window, without saving any entered values. 
 	-- Settings GUI will revert to old values on next OnConfigure
 	self.wndSettings:Show(false, true)	
-	
-	logexit("OnCancelSettings")
 end
 
 -- Extracts settings fields one by one, and updates tSettings accordingly.
 function PurchaseConfirmation:OnAcceptSettings()
-	logenter("OnAcceptSettings")
-	
 	-- Hide settings window
 	self.wndSettings:Show(false, true)
 	
@@ -214,8 +196,6 @@ function PurchaseConfirmation:OnAcceptSettings()
 	for _,v in ipairs(self.seqCurrencies) do
 		self:AcceptSettingsForCurrency(v.wndPanel, self.tSettings[v.strName])
 	end
-	
-	logexit("OnAcceptSettings")
 end
 
 function PurchaseConfirmation:AcceptSettingsForCurrency(wndPanel, tSettings)
@@ -297,23 +277,23 @@ function PurchaseConfirmation:ExtractOrRevertSettingNumber(wndField, strName, cu
 
 	-- Input-value must be parsable as a number
 	if newValue == nil then
-		logwarn("ExtractOrRevertSettingNumber", "Field " .. strName .. ": value '" .. textValue .. "' is not a number, reverting to previous value '" .. currentValue .. "'")
+		log:warn("Settings.ExtractOrRevertSettingNumber: Field " .. strName .. ": value '" .. textValue .. "' is not a number, reverting to previous value '" .. currentValue .. "'")
 		wndField:SetText(currentValue)
 		return currentValue
 	end
 	
 	-- Input-value is a number, but must be within specified bounds
 	if newValue < minValue or newValue > maxValue then
-		logwarn("ExtractOrRevertSettingNumber", "Field " .. strName .. ": value '" .. newValue .. "' is not within bounds [" .. minValue .. "-" .. maxValue .. "], reverting to previous value '" .. currentValue .. "'")
+		log:warn("Settings.ExtractOrRevertSettingNumber: Field " .. strName .. ": value '" .. newValue .. "' is not within bounds [" .. minValue .. "-" .. maxValue .. "], reverting to previous value '" .. currentValue .. "'")
 		wndField:SetText(currentValue)
 		return currentValue
 	end
 	
 	-- Input-value is accepted, log if changed or not
 	if newValue == currentValue then
-		logdebug("ExtractOrRevertSettingNumber", "Field " .. strName .. ": value '" .. newValue .. "' is unchanged")
+		log:debug("Settings.ExtractOrRevertSettingNumber: Field " .. strName .. ": value '" .. newValue .. "' is unchanged")
 	else
-		loginfo("ExtractOrRevertSettingNumber", "Field " .. strName .. ": value '" .. newValue .. "' updated from previous value '" .. currentValue .. "'")
+		log:info("Settings.ExtractOrRevertSettingNumber: Field " .. strName .. ": value '" .. newValue .. "' updated from previous value '" .. currentValue .. "'")
 	end
 	return newValue;
 end
@@ -322,9 +302,9 @@ end
 function PurchaseConfirmation:ExtractSettingAmount(wndField, strName, currentValue)
 	local newValue = wndField:GetAmount()
 	if newValue == currentValue then
-		logdebug("ExtractSettingAmount", "Field " .. tostring(strName) .. ": value '" .. tostring(newValue) .. "' is unchanged")
+		log:debug("Settings.ExtractSettingAmount: Field " .. tostring(strName) .. ": value '" .. tostring(newValue) .. "' is unchanged")
 	else
-		loginfo("ExtractSettingAmount", "Field " .. tostring(strName) .. ": value '" .. tostring(newValue) .. "' updated from previous value '" .. tostring(currentValue) .. "'")
+		log:info("Settings.ExtractSettingAmount: Field " .. tostring(strName) .. ": value '" .. tostring(newValue) .. "' updated from previous value '" .. tostring(currentValue) .. "'")
 	end
 	return newValue
 end
@@ -333,9 +313,9 @@ end
 function PurchaseConfirmation:ExtractSettingCheckbox(wndField, strName, currentValue)
 	local newValue = wndField:IsChecked()
 	if newValue == currentValue then
-		logdebug("ExtractSettingCheckbox", "Field " .. strName .. ": value '" .. tostring(newValue) .. "' is unchanged")
+		log:debug("Settings.ExtractSettingCheckbox: Field " .. strName .. ": value '" .. tostring(newValue) .. "' is unchanged")
 	else
-		loginfo("ExtractSettingCheckbox", "Field " .. strName .. ": value '" .. tostring(newValue) .. "' updated from previous value '" .. tostring(currentValue) .. "'")
+		log:info("Settings.ExtractSettingCheckbox: Field " .. strName .. ": value '" .. tostring(newValue) .. "' updated from previous value '" .. tostring(currentValue) .. "'")
 	end
 	return newValue
 end
@@ -346,7 +326,6 @@ end
 ---------------------------------------------------------------------------------------------------
 
 function PurchaseConfirmation:OnCurrencySelection(wndHandler, wndControl)
-	logenter("OnCurrencySelection")
 	local tCurrency = wndHandler:GetData()
 		for k,v in ipairs(self.seqCurrencies) do
 		if v.strName == tCurrency.strName then
@@ -356,6 +335,5 @@ function PurchaseConfirmation:OnCurrencySelection(wndHandler, wndControl)
 		end
 	end	
 	self:UpdateBalance()
-	logexit("OnCurrencySelection")
 end
 

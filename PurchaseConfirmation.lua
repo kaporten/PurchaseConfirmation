@@ -102,15 +102,11 @@ function PurchaseConfirmation:OnLoad()
 	
 	-- Load the XML file and await callback
 	self.xmlDoc = XmlDoc.CreateFromFile("PurchaseConfirmation.xml")
-	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
-	
-	logexit("OnLoad")
+	self.xmlDoc:RegisterCallback("OnDocLoaded", self)	
 end
 
 -- Called when XML doc is fully loaded/parsed. Create and configure forms.
-function PurchaseConfirmation:OnDocLoaded()
-	logenter("OnDocLoaded")
-	
+function PurchaseConfirmation:OnDocLoaded()	
 	local Localization = Apollo.GetPackage("PurchaseConfirmation:Localization").tPackage
 		
 	-- Check that XML document is properly loaded
@@ -189,8 +185,6 @@ function PurchaseConfirmation:OnDocLoaded()
 	if DEBUG_MODE == true then
 		Print("Addon '" .. ADDON_NAME .. "' running in debug-mode! Vendor purchases are disabled. Please contact me via Curse if you ever see this, since I probably forgot to disable debug-mode before releasing. For shame :(")
 	end
-	
-	logexit("OnDocLoaded")
 end
 
 -- Empty coffers threshold is a % of the players total credit
@@ -368,7 +362,6 @@ end
 
 -- Sets current display values on a single "details line" on the confirmation dialog
 function PurchaseConfirmation:UpdateConfirmationDetailsLine(wndLine, tThreshold, tCurrency)
-	logenter("UpdateConfirmationDetailsLine")
 	wndLine:FindChild("Amount"):SetAmount(tThreshold.monThreshold, true)
 	wndLine:FindChild("Amount"):SetMoneySystem(tCurrency.eType)
 
@@ -387,7 +380,6 @@ function PurchaseConfirmation:UpdateConfirmationDetailsLine(wndLine, tThreshold,
 		wndLine:FindChild("Amount"):SetTextColor("xkcdMediumGrey")
 		wndLine:SetTooltip(L["Threshold is disabled"])
 	end
-	logexit("UpdateConfirmationDetailsLine")
 end
 
 --- Iterates over all sequence elements, calcs the average value
