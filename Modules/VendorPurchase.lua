@@ -120,10 +120,6 @@ function VendorPurchase:UpdateDialogDetails(monPrice, tCallbackData)
 	return wnd
 end
 
-
-
-
-
 --- Main hook interceptor function.
 -- Called on Vendor's "Purchase" buttonclick / item rightclick.
 -- @tItemData item being "operated on" (purchase, sold, buyback) on the Vendr
@@ -132,7 +128,6 @@ function VendorPurchase:InterceptPurchase(tItemData)
 		
 	-- Store item details for easier debugging. Not actually used in application code.
 	module.tItemData = tItemData
-	module.tItemDetails = Item.GetDetailedInfo(tItemData)
 	
 	-- Prepare addon-specific callback data, used if/when the user confirms a purchase
 	local tCallbackData = {
@@ -151,7 +146,7 @@ function VendorPurchase:InterceptPurchase(tItemData)
 		
 	-- Only check thresholds if this is a purchase (not sales, repairs or buybacks)
 	if not vendor.wndVendor:FindChild("VendorTab0"):IsChecked() then
-		log:info("InterceptPurchase: Not a purchase")
+		log:debug("InterceptPurchase: Not a purchase")
 		addon:CompletePurchase(tCallbackData)
 		return
 	end

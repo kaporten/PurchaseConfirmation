@@ -23,6 +23,10 @@ require "Item"
 local DEBUG_MODE = false 
 local LOG_LEVEL = "ERROR"
 
+-- Constants for addon name, version etc.
+local ADDON_NAME = "PurchaseConfirmation"
+local ADDON_VERSION = {2, 1, 0} -- major, minor, bugfix
+
 	
 -- Addon object itself
 local PurchaseConfirmation = {} 
@@ -33,10 +37,6 @@ local log
 -- GeminiLocale
 local locale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
  
--- Constants for addon name, version etc.
-local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = {2, 0, 0} -- major, minor, bugfix
-
 -- Height of the details-foldout
 local FOLDOUT_HEIGHT = 100
 
@@ -44,6 +44,7 @@ local FOLDOUT_HEIGHT = 100
 local moduleNames = {
 	"PurchaseConfirmation:Settings",
 	"PurchaseConfirmation:VendorPurchase",
+	"PurchaseConfirmation:VendorRepair",
 }
 
 
@@ -94,7 +95,6 @@ function PurchaseConfirmation:OnLoad()
 		{eType = Money.CodeEnumCurrencyType.CraftingVouchers,	strName = "CraftingVouchers",	strDescription = Apollo.GetString("CRB_Crafting_Voucher_Desc")},
 		{eType = Money.CodeEnumCurrencyType.ElderGems,			strName = "ElderGems",			strDescription = Apollo.GetString("CRB_Elder_Gems_Desc")},
 	}
-	self.currentCurrencyIdx = 1 -- Default, show idx 1 on settings
 		
 	-- Load the XML file and await callback
 	self.xmlDoc = XmlDoc.CreateFromFile("PurchaseConfirmation.xml")
