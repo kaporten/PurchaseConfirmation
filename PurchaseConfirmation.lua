@@ -18,11 +18,11 @@ require "Money"
 require "Item"
 
 
-	-- Development mode settings. Should be false/"ERROR" for release builds.
-	-- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
-	local DEBUG_MODE = true 
-	local LOG_LEVEL = "DEBUG"
-	
+-- Development mode settings. Should be false/"ERROR" for release builds.
+-- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
+local DEBUG_MODE = false 
+local LOG_LEVEL = "ERROR"
+
 	
 -- Addon object itself
 local PurchaseConfirmation = {} 
@@ -159,14 +159,11 @@ function PurchaseConfirmation:LocalizeDialog(wnd)
 end
 
 --- Called by addon-hook when a purchase is taking place.
--- NB: Since this function is called by a module, which in turn
---     is called by a stock addon, "self" refers to the originating 
---     stock addon. Use "addon" instead.
 function PurchaseConfirmation:PriceCheck(tPurchaseData)
 	log:debug("PriceCheck: enter method")
 	
 	-- Get local ref to currency-specific threshold settings
-	local tSettings = addon.tSettings[tPurchaseData.tCurrency.strName]
+	local tSettings = self.tSettings[tPurchaseData.tCurrency.strName]
 	local tCurrency = tPurchaseData.tCurrency
 	local monPrice = tPurchaseData.monPrice
 	
@@ -236,7 +233,7 @@ function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
 	local wndDetails = tCallbackData.module:UpdateDialogDetails(monPrice, tCallbackData)
 	
 	-- Hide all detail children
-	local children = addon.wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea"):GetChildren()
+	local children = self.wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea"):GetChildren()
 	for _,v in pairs(children) do
 		-- ... except vendor-specific info for the module which caused this price check
 		v:Show(false, true)
@@ -250,11 +247,11 @@ function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
 	self:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdEmptyCoffers"), 	tThresholds.emptyCoffers, 	tCurrency)
 		
 	-- Set full purchase on dialog window
-	addon.wndDialog:SetData(tPurchaseData)
+	self.wndDialog:SetData(tPurchaseData)
 	
 	-- Show dialog, await button click
-	addon.wndDialog:ToFront()
-	addon.wndDialog:Show(true)
+	self.wndDialog:ToFront()
+	self.wndDialog:Show(true)
 end
 
 
