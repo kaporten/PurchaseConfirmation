@@ -27,11 +27,19 @@ local LOG_LEVEL = "DEBUG"
 -- Addon object itself
 local PurchaseConfirmation = {} 
 
+--[[
+	Reference to self. Useful when executing code initiated by functions injected
+	into the stock addons. When executing those functions (triggered by modules)
+	"self" references the originating stock addon. This shorthand allows those 
+	functions to reference the PurchaseConfirmation "self" instead.
+]]
+local addon
+
 -- GeminiLogging, configured during initialization
 local log
 
--- GeminiLocale, contains localized messages. Used for displaying appropriate tooltips.
-local locale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation", true)
+-- GeminiLocale
+local locale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
  
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
@@ -60,6 +68,9 @@ function PurchaseConfirmation:Init()
 	local bHasConfigureFunction = true
 	local strConfigureButtonText = "Purchase Conf."
 	local tDependencies = {VENDOR_ADDON_NAME, "Gemini:Logging-1.2",}
+	
+	-- For stock-addon initiated selfrefs.
+	addon = self
 	
 	Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
@@ -148,56 +159,19 @@ function PurchaseConfirmation:OnDocLoaded()
 	end
 end
 
+--- Use GeminiLocale to localize static fields on the dialog.
 function PurchaseConfirmation:LocalizeDialog(wnd)	
-	local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
+	wnd:FindChild("DialogArea"):FindChild("Title"):SetText(locale["Dialog_WindowTitle"])
+	wnd:FindChild("DialogArea"):FindChild("DetailsButton"):SetText("   " .. locale["Dialog_ButtonDetails"]) -- 3 spaces as leftpadding
 
-	wnd:FindChild("DialogArea"):FindChild("Title"):SetText(L["Dialog_WindowTitle"])
-	wnd:FindChild("DialogArea"):FindChild("DetailsButton"):SetText("   " .. L["Dialog_ButtonDetails"]) -- 3 spaces as leftpadding
-
-	wnd:FindChild("FoldoutArea"):FindChild("ThresholdFixed"):FindChild("Label"):SetText(L["Dialog_DetailsLabel_Fixed"])
-	wnd:FindChild("FoldoutArea"):FindChild("ThresholdAverage"):FindChild("Label"):SetText(L["Dialog_DetailsLabel_Average"])
-	wnd:FindChild("FoldoutArea"):FindChild("ThresholdEmptyCoffers"):FindChild("Label"):SetText(L["Dialog_DetailsLabel_EmptyCoffers"])
+	wnd:FindChild("FoldoutArea"):FindChild("ThresholdFixed"):FindChild("Label"):SetText(locale["Dialog_DetailsLabel_Fixed"])
+	wnd:FindChild("FoldoutArea"):FindChild("ThresholdAverage"):FindChild("Label"):SetText(locale["Dialog_DetailsLabel_Average"])
+	wnd:FindChild("FoldoutArea"):FindChild("ThresholdEmptyCoffers"):FindChild("Label"):SetText(locale["Dialog_DetailsLabel_EmptyCoffers"])
 end
-
--- Empty coffers threshold is a % of the players total credit
-function PurchaseConfirmation:GetEmptyCoffersThreshold(tSettings, tCurrency)
-	local monCurrentPlayerCash = GameLib.GetPlayerCurrency(tCurrency.eType):GetAmount()
-	local threshold = math.floor(monCurrentPlayerCash * (tSettings.tEmptyCoffers.nPercent/100))
-	log:debug("GetEmptyCoffersThreshold: Empty coffers threshold calculated for " .. tCurrency.strName .. ": " .. tostring(tSettings.tEmptyCoffers.nPercent) .. "% of " .. tostring(monCurrentPlayerCash) .. " = " .. tostring(threshold))	
-	return threshold
-end
-
--- Checks if a given threshold is enabled & breached
-function PurchaseConfirmation:IsThresholdBreached(tThreshold, monPrice)
-	-- Is threshold enabled?
-	if not tThreshold.bEnabled then
-		log:debug("IsThresholdBreached: Threshold type " .. tThreshold.strType .. " disabled, skipping price check")
-		return false
-	end
-	
-	-- Is threshold available?
-	if not tThreshold.monThreshold or tThreshold.monThreshold < 0 then
-		log:debug("IsThresholdBreached: Threshold type " .. tThreshold.strType .. " has no active amount, skipping price check")
-		return false
-	end
-	
-	-- Is threshold breached?
-	if monPrice > tThreshold.monThreshold then
-		log:info("IsThresholdBreached: " .. tThreshold.strType .. " threshold, unsafe amount (amount>=threshold): " .. monPrice  .. ">=" .. tThreshold.monThreshold)
-		return true
-	else
-		-- safe amount
-		log:debug("IsThresholdBreached: " .. tThreshold.strType .. " threshold, safe amount (amount<threshold): " .. monPrice  .. "<" .. tThreshold.monThreshold)
-		return false
-	end
-end
-
 
 --- Called by addon-hook when a purchase is taking place.
 function PurchaseConfirmation:PriceCheck(tPurchaseData)
 	log:debug("PriceCheck: enter method")
-
-	local addon = Apollo.GetAddon("PurchaseConfirmation")
 	
 	-- Get local ref to currency-specific threshold settings
 	local tSettings = addon.tSettings[tPurchaseData.tCurrency.strName]
@@ -262,9 +236,6 @@ end
 -- @param tThresholds Detailed data on which thresholds were breached
 -- @param tCallbackData Addonhook-specific callback data
 function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
-
-	local addon = Apollo.GetAddon("PurchaseConfirmation")
-
 	local tCallbackData = tPurchaseData.tCallbackData
 	local monPrice = tPurchaseData.monPrice
 	local tCurrency = tPurchaseData.tCurrency
@@ -309,29 +280,6 @@ function PurchaseConfirmation:CompletePurchase(tCallbackData)
 end
 
 
-function PurchaseConfirmation:UpdateAveragePriceHistory(tSettings, monPrice)
-	local addon = Apollo.GetAddon("PurchaseConfirmation")
-	
-	-- Add element to end of price history list
-	if tSettings.tAverage.seqPriceHistory == nil then tSettings.tAverage.seqPriceHistory = {} end
-	table.insert(tSettings.tAverage.seqPriceHistory, monPrice)
-	
-	-- Remove oldest element(s, in case of history size reduction) from start of list if size is overgrown
-	while #tSettings.tAverage.seqPriceHistory>tSettings.tAverage.nHistorySize do
-		table.remove(tSettings.tAverage.seqPriceHistory, 1)
-	end
-	
-	-- Update the average threshold
-	local oldAverage = tSettings.tAverage.monThreshold
-	local newAverage = addon:CalculateAverage(tSettings.tAverage.seqPriceHistory)
-	
-	-- Update the current tAverage.monThreshold, so it is ready for next purchase-test
-	newAverage = newAverage * (1+(tSettings.tAverage.nPercent/100)) -- add x% to threshold
-	tSettings.tAverage.monThreshold = math.floor(newAverage) -- round off
-
-	log:info("UpdateAveragePriceHistory: Updated Average threshold from " .. tostring(oldAverage) .. " to " .. tostring(tSettings.tAverage.monThreshold))
-end
-
 -- Sets current display values on a single "details line" on the confirmation dialog
 function PurchaseConfirmation:UpdateConfirmationDetailsLine(wndLine, tThreshold, tCurrency)
 	wndLine:FindChild("Amount"):SetAmount(tThreshold.monThreshold, true)
@@ -354,6 +302,62 @@ function PurchaseConfirmation:UpdateConfirmationDetailsLine(wndLine, tThreshold,
 	end
 end
 
+
+-- Empty coffers threshold is a % of the players total credit
+function PurchaseConfirmation:GetEmptyCoffersThreshold(tSettings, tCurrency)
+	local monCurrentPlayerCash = GameLib.GetPlayerCurrency(tCurrency.eType):GetAmount()
+	local threshold = math.floor(monCurrentPlayerCash * (tSettings.tEmptyCoffers.nPercent/100))
+	log:debug("GetEmptyCoffersThreshold: Empty coffers threshold calculated for " .. tCurrency.strName .. ": " .. tostring(tSettings.tEmptyCoffers.nPercent) .. "% of " .. tostring(monCurrentPlayerCash) .. " = " .. tostring(threshold))	
+	return threshold
+end
+
+-- Checks if a given threshold is enabled & breached
+function PurchaseConfirmation:IsThresholdBreached(tThreshold, monPrice)
+	-- Is threshold enabled?
+	if not tThreshold.bEnabled then
+		log:debug("IsThresholdBreached: Threshold type " .. tThreshold.strType .. " disabled, skipping price check")
+		return false
+	end
+	
+	-- Is threshold available?
+	if not tThreshold.monThreshold or tThreshold.monThreshold < 0 then
+		log:debug("IsThresholdBreached: Threshold type " .. tThreshold.strType .. " has no active amount, skipping price check")
+		return false
+	end
+	
+	-- Is threshold breached?
+	if monPrice > tThreshold.monThreshold then
+		log:info("IsThresholdBreached: " .. tThreshold.strType .. " threshold, unsafe amount (amount>=threshold): " .. monPrice  .. ">=" .. tThreshold.monThreshold)
+		return true
+	else
+		-- safe amount
+		log:debug("IsThresholdBreached: " .. tThreshold.strType .. " threshold, safe amount (amount<threshold): " .. monPrice  .. "<" .. tThreshold.monThreshold)
+		return false
+	end
+end
+
+function PurchaseConfirmation:UpdateAveragePriceHistory(tSettings, monPrice)
+	-- Add element to end of price history list
+	if tSettings.tAverage.seqPriceHistory == nil then tSettings.tAverage.seqPriceHistory = {} end
+	table.insert(tSettings.tAverage.seqPriceHistory, monPrice)
+	
+	-- Remove oldest element(s, in case of history size reduction) from start of list if size is overgrown
+	while #tSettings.tAverage.seqPriceHistory>tSettings.tAverage.nHistorySize do
+		table.remove(tSettings.tAverage.seqPriceHistory, 1)
+	end
+	
+	-- Update the average threshold
+	local oldAverage = tSettings.tAverage.monThreshold
+	local newAverage = addon:CalculateAverage(tSettings.tAverage.seqPriceHistory)
+	
+	-- Update the current tAverage.monThreshold, so it is ready for next purchase-test
+	newAverage = newAverage * (1+(tSettings.tAverage.nPercent/100)) -- add x% to threshold
+	tSettings.tAverage.monThreshold = math.floor(newAverage) -- round off
+
+	log:info("UpdateAveragePriceHistory: Updated Average threshold from " .. tostring(oldAverage) .. " to " .. tostring(tSettings.tAverage.monThreshold))
+end
+
+
 --- Iterates over all sequence elements, calcs the average value
 -- @param seqPriceHistory Sequence of numbers (amounts)
 function PurchaseConfirmation:CalculateAverage(seqPriceHistory)
@@ -374,9 +378,19 @@ function PurchaseConfirmation:CalculateAverage(seqPriceHistory)
 end
 
 
------------------------------------------------------------------------------------------------
--- ConfirmPurchaseDialogForm button click functions
------------------------------------------------------------------------------------------------
+-- Locates the supported currency config by its ID (rather than its name). Returns nil if not supported.
+function PurchaseConfirmation:GetSupportedCurrencyByEnum(eType)
+	for _,tCurrency in ipairs(self.seqCurrencies) do
+		if tCurrency.eType == eType then return tCurrency end
+	end
+	return nil
+end
+
+
+
+---------------------------------------------------------------------------------------------------
+-- Purchase confirmation dialog confirm/cancel button responses
+---------------------------------------------------------------------------------------------------
 
 -- when the Purchase button is clicked
 function PurchaseConfirmation:OnConfirmPurchase()	
@@ -397,26 +411,12 @@ function PurchaseConfirmation:OnCancelPurchase()
 	self.wndDialog:Show(false, true)
 end
 
--- Locates the supported currency config by its ID (rather than its name). Returns nil if not supported.
-function PurchaseConfirmation:GetSupportedCurrencyByEnum(eType)
-	for _,tCurrency in ipairs(self.seqCurrencies) do
-		if tCurrency.eType == eType then return tCurrency end
-	end
-	return nil
-end
 
--- When checking the details button, show the details panel
-function PurchaseConfirmation:OnDetailsButtonCheck( wndHandler, wndControl, eMouseButton )
-	-- Resize the main window frame so that it is possible to drag it around via the hidden details section
-	local left, top, right, bottom = self.wndDialog:GetAnchorOffsets()
-	bottom = bottom + FOLDOUT_HEIGHT
-	self.wndDialog:SetAnchorOffsets(left, top, right, bottom)
+---------------------------------------------------------------------------------------------------
+-- Purchase confirmation dialog details-foldout show/hide/configure button responses
+---------------------------------------------------------------------------------------------------
 
-	local foldout = self.wndDialog:FindChild("FoldoutArea")
-	foldout:Show(true, true)
-end
-
--- When checking the details button, hide the details panel
+--- When checking the details button, hide the details panel
 function PurchaseConfirmation:OnDetailsButtonUncheck( wndHandler, wndControl, eMouseButton )
 	-- Resize the main window frame so that it is not possible to drag it around via the hidden details section
 	local left, top, right, bottom = self.wndDialog:GetAnchorOffsets()
@@ -427,7 +427,18 @@ function PurchaseConfirmation:OnDetailsButtonUncheck( wndHandler, wndControl, eM
 	foldout:Show(false, true)
 end
 
--- Clicking the detail-panel configure button opens the config
+--- When checking the details button, show the details panel
+function PurchaseConfirmation:OnDetailsButtonCheck( wndHandler, wndControl, eMouseButton )
+	-- Resize the main window frame so that it is possible to drag it around via the hidden details section
+	local left, top, right, bottom = self.wndDialog:GetAnchorOffsets()
+	bottom = bottom + FOLDOUT_HEIGHT
+	self.wndDialog:SetAnchorOffsets(left, top, right, bottom)
+
+	local foldout = self.wndDialog:FindChild("FoldoutArea")
+	foldout:Show(true, true)
+end
+
+--- Clicking the detail-panel configure button opens the config
 function PurchaseConfirmation:OnDetailsOpenSettings()
 	-- TODO: pre-select current currency in settings window
 	self:OnConfigure()
@@ -439,7 +450,7 @@ end
 
 
 ---------------------------------------------------------------------------------------------------
--- Settings save/restore hooks
+-- Addon Settings save/restore hooks
 ---------------------------------------------------------------------------------------------------
 
 -- Save addon config per character. Called by engine when performing a controlled game shutdown.
