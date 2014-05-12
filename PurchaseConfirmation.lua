@@ -68,8 +68,10 @@ function PurchaseConfirmation:OnLoad()
 		appender = "GeminiConsole"
 	}
 	log = Apollo.GetPackage("Gemini:Logging-1.2").tPackage:GetLogger(opt)		
+	log:debug("PurchaseConfirmation.OnLoad: GeminiLogging configured")
+
+	-- Store ref to log in addon, so that modules can access it via GetAddon
 	self.log = log
-	logdebug("OnLoad", "GeminiLogging configured")
 	
 	--[[
 		Supported currencies. Fields:
@@ -114,7 +116,7 @@ function PurchaseConfirmation:OnDocLoaded()
 	-- Check that XML document is properly loaded
 	if self.xmlDoc == nil or not self.xmlDoc:IsLoaded() then
 		Apollo.AddAddonErrorText(self, "XML document was not loaded")
-		logerror("XML document was not loaded")
+		log:error("PurchaseConfirmation.OnDocLoaded: XML document was not loaded")
 		return
 	end
 		
@@ -123,7 +125,7 @@ function PurchaseConfirmation:OnDocLoaded()
 	Localization.LocalizeDialog(self.wndDialog)
 	if self.wndDialog == nil then
 		Apollo.AddAddonErrorText(self, "Could not load the ConfirmDialog window")
-		logerror("OnDocLoaded", "wndDialog is nil!")
+		log:error("PurchaseConfirmation.OnDocLoaded: wndDialog is nil!")
 		return
 	end
 	self.wndDialog:Show(false, true)	
@@ -136,7 +138,7 @@ function PurchaseConfirmation:OnDocLoaded()
 	Localization.LocalizeSettings(self.wndSettings)
 	if self.wndSettings == nil then
 		Apollo.AddAddonErrorText(self, "Could not load the SettingsForm window")
-		logerror("OnDocLoaded", "wndSettings is nil!")
+		log:error("PurchaseConfirmation.OnDocLoaded: wndSettings is nil!")
 		return
 	end	
 	self.wndSettings:Show(false, true)
@@ -154,7 +156,7 @@ function PurchaseConfirmation:OnDocLoaded()
 
 		if tCurrency.wndPanel == nil then
 			Apollo.AddAddonErrorText(self, "Could not load the CurrencyPanelForm window")
-			logerror("OnDocLoaded", "wndPanel is nil!")
+			log:error("PurchaseConfirmation.OnDocLoaded: wndPanel is nil!")
 			return
 		end
 		
@@ -170,7 +172,7 @@ function PurchaseConfirmation:OnDocLoaded()
 		-- Set appropriate currency type on amount fields
 		tCurrency.wndPanel:FindChild("FixedSection"):FindChild("Amount"):SetMoneySystem(tCurrency.eType)
 		tCurrency.wndPanel:FindChild("PunySection"):FindChild("Amount"):SetMoneySystem(tCurrency.eType)
-		logdebug("OnDocLoaded", "Configured currency-settings for '" .. tostring(tCurrency.strName) .. "' (" .. tostring(tCurrency.eType) .. ")")
+		log:debug("PurchaseConfirmation.OnDocLoaded: Configured currency-settings for '" .. tostring(tCurrency.strName) .. "' (" .. tostring(tCurrency.eType) .. ")")
 	end
 		
 	-- Now that forms are loaded, remove XML doc for gc
@@ -193,59 +195,41 @@ end
 
 -- Empty coffers threshold is a % of the players total credit
 function PurchaseConfirmation:GetEmptyCoffersThreshold(tSettings, tCurrency)
-	logenter("GetEmptyCoffersThreshold")
 	local monCurrentPlayerCash = GameLib.GetPlayerCurrency(tCurrency.eType):GetAmount()
 	local threshold = math.floor(monCurrentPlayerCash * (tSettings.tEmptyCoffers.nPercent/100))
-	logdebug("GetEmptyCoffersThreshold", "Empty coffers threshold calculated for " .. tCurrency.strName .. ": " .. tostring(tSettings.tEmptyCoffers.nPercent) .. "% of " .. tostring(monCurrentPlayerCash) .. " = " .. tostring(threshold))
-	logexit("GetEmptyCoffersThreshold")
+	log:debug("PurchaseConfirmation.GetEmptyCoffersThreshold: Empty coffers threshold calculated for " .. tCurrency.strName .. ": " .. tostring(tSettings.tEmptyCoffers.nPercent) .. "% of " .. tostring(monCurrentPlayerCash) .. " = " .. tostring(threshold))	
 	return threshold
 end
 
 -- Checks if a given threshold is enabled & breached
 function PurchaseConfirmation:IsThresholdBreached(tThreshold, monPrice)
-	logenter("IsThresholdBreached")
-	
 	-- Is threshold enabled?
 	if not tThreshold.bEnabled then
-		logdebug("IsThresholdBreached", "Threshold type " .. tThreshold.strType .. " disabled, skipping price check")
+		log:debug("PurchaseConfirmation.IsThresholdBreached: Threshold type " .. tThreshold.strType .. " disabled, skipping price check")
 		return false
 	end
 	
 	-- Is threshold available?
 	if not tThreshold.monThreshold or tThreshold.monThreshold < 0 then
-		logdebug("IsThresholdBreached", "Threshold type " .. tThreshold.strType .. " has no active amount, skipping price check")
+		log:debug("PurchaseConfirmation.IsThresholdBreached: Threshold type " .. tThreshold.strType .. " has no active amount, skipping price check")
 		return false
 	end
 	
 	-- Is threshold breached?
 	if monPrice > tThreshold.monThreshold then
-		loginfo("IsThresholdBreached", tThreshold.strType .. " threshold, unsafe amount (amount>=threshold): " .. monPrice  .. ">=" .. tThreshold.monThreshold)
+		log:info("PurchaseConfirmation.IsThresholdBreached: " .. tThreshold.strType .. " threshold, unsafe amount (amount>=threshold): " .. monPrice  .. ">=" .. tThreshold.monThreshold)
 		return true
 	else
 		-- safe amount
-		loginfo("IsThresholdBreached", tThreshold.strType .. " threshold, safe amount (amount<threshold): " .. monPrice  .. "<" .. tThreshold.monThreshold)
+		log:debug("PurchaseConfirmation.IsThresholdBreached: " .. tThreshold.strType .. " threshold, safe amount (amount<threshold): " .. monPrice  .. "<" .. tThreshold.monThreshold)
 		return false
 	end
 end
 
--- Determines the current punyLimit
-function PurchaseConfirmation:GetPunyLimit(tSettings)
-	logenter("GetPunyLimit")
-
-	-- No more of that confusing level-scaling stuff
-	local monPunyLimit = tSettings.tPuny.monThreshold
-	
-	logexit("GetPunyLimit")
-	return monPunyLimit
-end
 
 --- Called by addon-hook when a purchase is taking place.
--- Checks all thresholds:
---  1. If puny limit is enabled/breached, the purchase will be completed without further action.
---  2. If any threshold is enabled/breached, the confirmation dialog will be shown
--- @param tPurchaseData Structure containing {monPrice, tCurrency, tCallbackData}
 function PurchaseConfirmation:PriceCheck(tPurchaseData)
-	self.log:debug("PurchaseConfirmation.PriceCheck: enter method")
+	log:debug("PurchaseConfirmation.PriceCheck: enter method")
 
 	local addon = Apollo.GetAddon("PurchaseConfirmation")
 	
@@ -256,10 +240,10 @@ function PurchaseConfirmation:PriceCheck(tPurchaseData)
 	
 	-- Check if price is below puny limit
 	if tSettings.tPuny.bEnabled then
-		local monPunyLimit = self:GetPunyLimit(tSettings)
+		local monPunyLimit = tSettings.tPuny.monThreshold
 		if monPunyLimit and monPrice < monPunyLimit then
 			-- Price is below puny-limit, complete purchase (without adding price to history etc)
-			self.log:info("Vendor.FinalizeBuy: Puny amount " .. monPrice .. " ignored")
+			log:info("Vendor.FinalizeBuy: Puny amount " .. monPrice .. " ignored")
 			self:CompletePurchase(tPurchaseData.tCallbackData)
 			return
 		end
@@ -348,7 +332,7 @@ end
 --- Called when a purchase should be fully completed against "bakcend" addon.
 -- @param tCallbackData hook/data structure supplied by addon-wrapper which initiated the purchase
 function PurchaseConfirmation:CompletePurchase(tCallbackData)
-	self.log:debug("PurchaseConfirmation.CompletePurchase: enter method")	
+	log:debug("PurchaseConfirmation.CompletePurchase: enter method")	
 	
 	-- Delegate to supplied hook method, unless debug mode is on
 	if DEBUG_MODE == true then
@@ -379,7 +363,7 @@ function PurchaseConfirmation:UpdateAveragePriceHistory(tSettings, monPrice)
 	newAverage = newAverage * (1+(tSettings.tAverage.nPercent/100)) -- add x% to threshold
 	tSettings.tAverage.monThreshold = math.floor(newAverage) -- round off
 
-	loginfo("ConfirmPurchase", "Updated Average threshold from " .. tostring(oldAverage) .. " to " .. tostring(tSettings.tAverage.monThreshold))
+	log:info("PurchaseConfirmation.UpdateAveragePriceHistory: Updated Average threshold from " .. tostring(oldAverage) .. " to " .. tostring(tSettings.tAverage.monThreshold))
 end
 
 -- Sets current display values on a single "details line" on the confirmation dialog
@@ -406,9 +390,9 @@ function PurchaseConfirmation:UpdateConfirmationDetailsLine(wndLine, tThreshold,
 	logexit("UpdateConfirmationDetailsLine")
 end
 
--- Iterates over all sequence elements, calcs the average
+--- Iterates over all sequence elements, calcs the average value
+-- @param seqPriceHistory Sequence of numbers (amounts)
 function PurchaseConfirmation:CalculateAverage(seqPriceHistory)
-	logenter("CalculateAverage")
 	local total = 0
 	
 	if #seqPriceHistory <= 0 then
@@ -420,14 +404,10 @@ function PurchaseConfirmation:CalculateAverage(seqPriceHistory)
 	end
 	
 	local avg = math.floor(total / #seqPriceHistory)
-	logdebug("CalculateAverage", "Average=" .. avg)
-	
-	logexit("CalculateAverage")
-	
+	log:debug("PurchaseConfirmation.CalculateAverage: Average=" .. avg)
+		
 	return avg
 end
-
-
 
 
 -----------------------------------------------------------------------------------------------
@@ -463,32 +443,24 @@ end
 
 -- When checking the details button, show the details panel
 function PurchaseConfirmation:OnDetailsButtonCheck( wndHandler, wndControl, eMouseButton )
-	logenter("OnDetailsButtonCheck")
-	
 	-- Resize the main window frame so that it is possible to drag it around via the hidden details section
 	local left, top, right, bottom = self.wndDialog:GetAnchorOffsets()
-	logdebug("OnDetailsButtonCheck", "left="..left..", top="..top..", right="..right..", bottom="..bottom)
 	bottom = bottom + DETAIL_WINDOW_HEIGHT
 	self.wndDialog:SetAnchorOffsets(left, top, right, bottom)
 
 	local foldout = self.wndDialog:FindChild("FoldoutArea")
 	foldout:Show(true, true)
-	logexit("OnDetailsButtonCheck")
 end
 
 -- When checking the details button, hide the details panel
 function PurchaseConfirmation:OnDetailsButtonUncheck( wndHandler, wndControl, eMouseButton )
-	logenter("OnDetailsButtonUncheck")
-
 	-- Resize the main window frame so that it is not possible to drag it around via the hidden details section
 	local left, top, right, bottom = self.wndDialog:GetAnchorOffsets()
-	logdebug("OnDetailsButtonUncheck", "left="..left..", top="..top..", right="..right..", bottom="..bottom)
 	bottom = bottom - DETAIL_WINDOW_HEIGHT
 	self.wndDialog:SetAnchorOffsets(left, top, right, bottom)
 	
 	local foldout = self.wndDialog:FindChild("FoldoutArea")
 	foldout:Show(false, true)
-	logexit("OnDetailsButtonUncheck")
 end
 
 -- Clicking the detail-panel configure button opens the config
@@ -517,8 +489,6 @@ end
 
 -- Restore addon config per character. Called by engine when loading UI.
 function PurchaseConfirmation:OnRestore(eType, tSavedData)
-	logenter("OnRestore")
-	
 	if eType ~= GameLib.CodeEnumAddonSaveLevel.Character then 
 		return 
 	end
@@ -529,50 +499,6 @@ function PurchaseConfirmation:OnRestore(eType, tSavedData)
 		settings from previous addon-versions.	
 	]]
 	self.tSettings = self:RestoreSettings(tSavedData)
-
-	logexit("OnRestore")
-end
-
------------------------------------------------------------------------------------------------
--- Convenience wrappers of the GeminiLogging methods
------------------------------------------------------------------------------------------------
-function composemessage(strFuncname, strMessage)
-	if strFuncname == nil then
-		strFuncname = "nil"
-	end
-	
-	if strMessage == nil then
-		strMessage = "nil"
-	end
-	
-	return strFuncname .. ": " .. strMessage
-end
-
-function logdebug(strFuncname, strMessage)
-	log:debug(composemessage(strFuncname, strMessage))
-end
-
-function loginfo(strFuncname, strMessage)
-	log:info(composemessage(strFuncname, strMessage))
-end
-
-function logwarn(strFuncname, strMessage)
-	log:warn(composemessage(strFuncname, strMessage))
-end
-
-function logerror(strFuncname, strMessage)
-	log:error(composemessage(strFuncname, strMessage))
-end
-
--- Enter and exit method debug traces. Figure out if some Lua-style AOP is possible instead...
-function logenter(strFuncname)
-	logdebug(strFuncname, "Enter method")
-end
-
--- logexit is only used during "regular" fuction exits, 
--- not null-guard exits and similar. In those cases, look for warn logs instead.
-function logexit(strFuncname)
-	logdebug(strFuncname, "Exit method")
 end
 
 -----------------------------------------------------------------------------------------------
