@@ -16,16 +16,7 @@
 local Localization = {}
 Apollo.RegisterPackage(Localization, "PurchaseConfirmation:Localization", 1, {"Gemini:Locale-1.0"})
 
-function Localization.LocalizeDialog(wnd)	
-	local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
 
-	wnd:FindChild("DialogArea"):FindChild("Title"):SetText(L["Dialog_WindowTitle"])
-	wnd:FindChild("DialogArea"):FindChild("DetailsButton"):SetText("   " .. L["Dialog_ButtonDetails"]) -- 3 spaces as leftpadding
-
-	wnd:FindChild("FoldoutArea"):FindChild("ThresholdFixed"):FindChild("Label"):SetText(L["Dialog_DetailsLabel_Fixed"])
-	wnd:FindChild("FoldoutArea"):FindChild("ThresholdAverage"):FindChild("Label"):SetText(L["Dialog_DetailsLabel_Average"])
-	wnd:FindChild("FoldoutArea"):FindChild("ThresholdEmptyCoffers"):FindChild("Label"):SetText(L["Dialog_DetailsLabel_EmptyCoffers"])
-end
 
 
 

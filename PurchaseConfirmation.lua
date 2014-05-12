@@ -17,30 +17,35 @@ require "Window"
 require "Money"
 require "Item"
 
+
+-- Development mode settings. Should be false/"ERROR" for release builds.
+-- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
+local DEBUG_MODE = true 
+local LOG_LEVEL = "DEBUG"
+
+
 -- Addon object itself
 local PurchaseConfirmation = {} 
-	
--- Gemini logging ref stored in chunk for logging shorthand methods
--- TODO: either use Gemini logging "raw", or create a real wrapper class for it.
+
+-- GeminiLogging, configured during initialization
 local log
+
+-- GeminiLocale, contains localized messages. Used for displaying appropriate tooltips.
+local locale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation", true)
  
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
 local ADDON_VERSION = {2, 0, 0} -- major, minor, bugfix
 
--- Should be false/"ERROR" for release builds
-local DEBUG_MODE = true -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
-local LOG_LEVEL = "DEBUG" -- Only log errors, not info/debug/warn
+-- Height of the details-foldout
+local FOLDOUT_HEIGHT = 100
 
-local DETAIL_WINDOW_HEIGHT = 100
-
-local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation", true)
-
--- Names of addon-hook modules to load 
+-- Names of modules to load during initialization
 local moduleNames = {
-	"PurchaseConfirmation:VendorPurchase",
 	"PurchaseConfirmation:Settings",
+	"PurchaseConfirmation:VendorPurchase",
 }
+
 
 -- Standard object instance creation
 function PurchaseConfirmation:new(o)
@@ -71,15 +76,15 @@ function PurchaseConfirmation:OnLoad()
 	log = Apollo.GetPackage("Gemini:Logging-1.2").tPackage:GetLogger(opt)		
 	log:debug("OnLoad: GeminiLogging configured")
 
-	-- Store ref to log in addon, so that modules can access it via GetAddon
+	-- Store ref to log in addon, so that modules can access it via GetAddon.
 	self.log = log
 	
 	--[[
 		Supported currencies. Fields:
 			eType = currency enum type used by Apollo API
 			strName = hardcoded name for the currency, to be referenced in saved config (to disconnect from enum ordering)
-			strDescription = description of the currency type -- not used anywhere yet
-			wndPanel = handle to settings window panel for this currency, to be populated in OnDocLoaded
+			strDescription = description of the currency type
+			wndPanel = handle to settings window panel for this currency, populated by Settings module
 	]]
 	-- Order of elements must match Settings GUI button layout
 	self.seqCurrencies = {																		
@@ -98,8 +103,6 @@ end
 
 -- Called when XML doc is fully loaded/parsed. Create and configure forms.
 function PurchaseConfirmation:OnDocLoaded()	
-	local Localization = Apollo.GetPackage("PurchaseConfirmation:Localization").tPackage
-		
 	-- Check that XML document is properly loaded
 	if self.xmlDoc == nil or not self.xmlDoc:IsLoaded() then
 		Apollo.AddAddonErrorText(self, "XML document was not loaded")
@@ -109,12 +112,13 @@ function PurchaseConfirmation:OnDocLoaded()
 		
 	-- Load confirmation dialog form 
 	self.wndDialog = Apollo.LoadForm(self.xmlDoc, "DialogForm", nil, self)
-	Localization.LocalizeDialog(self.wndDialog)
 	if self.wndDialog == nil then
 		Apollo.AddAddonErrorText(self, "Could not load the ConfirmDialog window")
 		log:error("OnDocLoaded: wndDialog is nil!")
 		return
 	end
+	self:LocalizeDialog(self.wndDialog)
+	
 	-- Dialog form has details-foldout enabled in Hudson for editability. Collapse it by default
 	self:OnDetailsButtonUncheck()
 	self.wndDialog:Show(false, true)	
@@ -142,6 +146,17 @@ function PurchaseConfirmation:OnDocLoaded()
 	if DEBUG_MODE == true then
 		Print("Addon '" .. ADDON_NAME .. "' running in debug-mode! Vendor purchases are disabled. Please contact me via Curse if you ever see this, since I probably forgot to disable debug-mode before releasing. For shame :(")
 	end
+end
+
+function PurchaseConfirmation:LocalizeDialog(wnd)	
+	local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
+
+	wnd:FindChild("DialogArea"):FindChild("Title"):SetText(L["Dialog_WindowTitle"])
+	wnd:FindChild("DialogArea"):FindChild("DetailsButton"):SetText("   " .. L["Dialog_ButtonDetails"]) -- 3 spaces as leftpadding
+
+	wnd:FindChild("FoldoutArea"):FindChild("ThresholdFixed"):FindChild("Label"):SetText(L["Dialog_DetailsLabel_Fixed"])
+	wnd:FindChild("FoldoutArea"):FindChild("ThresholdAverage"):FindChild("Label"):SetText(L["Dialog_DetailsLabel_Average"])
+	wnd:FindChild("FoldoutArea"):FindChild("ThresholdEmptyCoffers"):FindChild("Label"):SetText(L["Dialog_DetailsLabel_EmptyCoffers"])
 end
 
 -- Empty coffers threshold is a % of the players total credit
@@ -327,15 +342,15 @@ function PurchaseConfirmation:UpdateConfirmationDetailsLine(wndLine, tThreshold,
 		wndLine:FindChild("Label"):SetTextColor("xkcdLightGrey")
 		wndLine:FindChild("Amount"):SetTextColor("xkcdLightGrey")
 		if tThreshold.bBreached then
-			wndLine:SetTooltip(L["Dialog_DetailsTooltip_Breached"])
+			wndLine:SetTooltip(locale["Dialog_DetailsTooltip_Breached"])
 		else
-			wndLine:SetTooltip(L["Dialog_DetailsTooltip_NotBreached"])
+			wndLine:SetTooltip(locale["Dialog_DetailsTooltip_NotBreached"])
 		end
 	else
 		wndLine:FindChild("Icon"):Show(false)
 		wndLine:FindChild("Label"):SetTextColor("xkcdMediumGrey")
 		wndLine:FindChild("Amount"):SetTextColor("xkcdMediumGrey")
-		wndLine:SetTooltip(L["Threshold is disabled"])
+		wndLine:SetTooltip(locale["Threshold is disabled"])
 	end
 end
 
@@ -394,7 +409,7 @@ end
 function PurchaseConfirmation:OnDetailsButtonCheck( wndHandler, wndControl, eMouseButton )
 	-- Resize the main window frame so that it is possible to drag it around via the hidden details section
 	local left, top, right, bottom = self.wndDialog:GetAnchorOffsets()
-	bottom = bottom + DETAIL_WINDOW_HEIGHT
+	bottom = bottom + FOLDOUT_HEIGHT
 	self.wndDialog:SetAnchorOffsets(left, top, right, bottom)
 
 	local foldout = self.wndDialog:FindChild("FoldoutArea")
@@ -405,7 +420,7 @@ end
 function PurchaseConfirmation:OnDetailsButtonUncheck( wndHandler, wndControl, eMouseButton )
 	-- Resize the main window frame so that it is not possible to drag it around via the hidden details section
 	local left, top, right, bottom = self.wndDialog:GetAnchorOffsets()
-	bottom = bottom - DETAIL_WINDOW_HEIGHT
+	bottom = bottom - FOLDOUT_HEIGHT
 	self.wndDialog:SetAnchorOffsets(left, top, right, bottom)
 	
 	local foldout = self.wndDialog:FindChild("FoldoutArea")

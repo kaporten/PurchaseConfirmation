@@ -5,17 +5,16 @@
     <Script Name="Libs/GeminiLogging-1.2/GeminiLogging.lua"/>
     <Script Name="Libs/GeminiLocale-1.0/GeminiLocale.lua"/>
     <!-- Localization -->
-    <Script Name="Localization.lua"/>
     <Script Name="Locale/enUS.lua"/>
     <Script Name="Locale/deDE.lua"/>
     <Script Name="Locale/frFR.lua"/>
     <Script Name="Locale/koKR.lua"/>
-    <!-- Addon itself -->
-    <Script Name="PurchaseConfirmation.lua"/>
-    <Form Name="PurchaseConfirmation.xml"/>    
     <!-- Modules -->
 	<Script Name="Modules/Settings.lua"/>
 	<Form Name="Modules/Settings.xml"/>
     <Script Name="Modules/VendorPurchase.lua"/>
     <Form Name="Modules/VendorPurchase.xml"/>
+    <!-- Addon itself -->
+    <Script Name="PurchaseConfirmation.lua"/>
+    <Form Name="PurchaseConfirmation.xml"/>    
 </Addon>
