@@ -18,22 +18,14 @@ require "Money"
 require "Item"
 
 
--- Development mode settings. Should be false/"ERROR" for release builds.
--- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
-local DEBUG_MODE = true 
-local LOG_LEVEL = "DEBUG"
-
-
+	-- Development mode settings. Should be false/"ERROR" for release builds.
+	-- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
+	local DEBUG_MODE = true 
+	local LOG_LEVEL = "DEBUG"
+	
+	
 -- Addon object itself
 local PurchaseConfirmation = {} 
-
---[[
-	Reference to self. Useful when executing code initiated by functions injected
-	into the stock addons. When executing those functions (triggered by modules)
-	"self" references the originating stock addon. This shorthand allows those 
-	functions to reference the PurchaseConfirmation "self" instead.
-]]
-local addon
 
 -- GeminiLogging, configured during initialization
 local log
@@ -68,9 +60,6 @@ function PurchaseConfirmation:Init()
 	local bHasConfigureFunction = true
 	local strConfigureButtonText = "Purchase Conf."
 	local tDependencies = {VENDOR_ADDON_NAME, "Gemini:Logging-1.2",}
-	
-	-- For stock-addon initiated selfrefs.
-	addon = self
 	
 	Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
@@ -170,6 +159,9 @@ function PurchaseConfirmation:LocalizeDialog(wnd)
 end
 
 --- Called by addon-hook when a purchase is taking place.
+-- NB: Since this function is called by a module, which in turn
+--     is called by a stock addon, "self" refers to the originating 
+--     stock addon. Use "addon" instead.
 function PurchaseConfirmation:PriceCheck(tPurchaseData)
 	log:debug("PriceCheck: enter method")
 	
@@ -211,7 +203,7 @@ function PurchaseConfirmation:PriceCheck(tPurchaseData)
 	-- Check all thresholds in order, register breach status on threshold table
 	local bRequestConfirmation = false
 	for _,v in pairs(tThresholds) do
-		v.bBreached = addon:IsThresholdBreached(v, monPrice)		
+		v.bBreached = self:IsThresholdBreached(v, monPrice)		
 		
 		-- Track if any of them were breached
 		if v.bBreached then
@@ -221,13 +213,13 @@ function PurchaseConfirmation:PriceCheck(tPurchaseData)
 
 	-- If confirmation is required, show dialog and DO NOT proceed to confirm purchase	
 	if bRequestConfirmation then
-		addon:RequestConfirmation(tPurchaseData, tThresholds)
+		self:RequestConfirmation(tPurchaseData, tThresholds)
 		return 
 	end
 	
 	-- No thresholds breached, just update price history and complete purchase
-	addon:UpdateAveragePriceHistory(tSettings, monPrice)
-	addon:CompletePurchase(tPurchaseData.tCallbackData)
+	self:UpdateAveragePriceHistory(tSettings, monPrice)
+	self:CompletePurchase(tPurchaseData.tCallbackData)
 end
 
 
@@ -253,9 +245,9 @@ function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
 	
 	-- Prepare foldout area	
 	local wndFoldout = self.wndDialog:FindChild("FoldoutArea")
-	addon:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdFixed"), 		tThresholds.fixed, 			tCurrency)
-	addon:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdAverage"),		tThresholds.average, 		tCurrency)
-	addon:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdEmptyCoffers"), 	tThresholds.emptyCoffers, 	tCurrency)
+	self:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdFixed"), 		tThresholds.fixed, 			tCurrency)
+	self:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdAverage"),		tThresholds.average, 		tCurrency)
+	self:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdEmptyCoffers"), 	tThresholds.emptyCoffers, 	tCurrency)
 		
 	-- Set full purchase on dialog window
 	addon.wndDialog:SetData(tPurchaseData)
@@ -348,7 +340,7 @@ function PurchaseConfirmation:UpdateAveragePriceHistory(tSettings, monPrice)
 	
 	-- Update the average threshold
 	local oldAverage = tSettings.tAverage.monThreshold
-	local newAverage = addon:CalculateAverage(tSettings.tAverage.seqPriceHistory)
+	local newAverage = self:CalculateAverage(tSettings.tAverage.seqPriceHistory)
 	
 	-- Update the current tAverage.monThreshold, so it is ready for next purchase-test
 	newAverage = newAverage * (1+(tSettings.tAverage.nPercent/100)) -- add x% to threshold
