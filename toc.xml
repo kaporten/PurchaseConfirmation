@@ -10,11 +10,12 @@
     <Script Name="Locale/deDE.lua"/>
     <Script Name="Locale/frFR.lua"/>
     <Script Name="Locale/koKR.lua"/>
-    <!-- Addons to hook -->
-    <Script Name="Modules/VendorPurchase.lua"/>
-    <Form Name="Modules/VendorPurchase.xml"/>
     <!-- Addon itself -->
     <Script Name="PurchaseConfirmation.lua"/>
-    <Script Name="Settings.lua"/>
-    <Form Name="PurchaseConfirmation.xml"/>
+    <Form Name="PurchaseConfirmation.xml"/>    
+    <!-- Modules -->
+	<Script Name="Modules/Settings.lua"/>
+	<Form Name="Modules/Settings.xml"/>
+    <Script Name="Modules/VendorPurchase.lua"/>
+    <Form Name="Modules/VendorPurchase.xml"/>
 </Addon>

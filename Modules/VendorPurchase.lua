@@ -6,8 +6,13 @@ require "Window"
 	specifically for the regular "purchase item" functionality.
 ]]
 
+-- Register module as package
+local VendorPurchase = {}
+local MODULE_NAME = "PurchaseConfirmation:VendorPurchase"
+Apollo.RegisterPackage(VendorPurchase, MODULE_NAME, 1, {"PurchaseConfirmation", "Vendor"})
 
-local MODULE_NAME = "PurchaseConfirmation:Modules:VendorPurchase"
+-- "glocals" set during Init
+local addon, module, vendor, log
 
 -- Copied from the Util addon. Used to set item quality borders on the confirmation dialog
 -- TODO: Figure out how to use list in Util addon itself.
@@ -22,8 +27,6 @@ local qualityColors = {
 	ApolloColor.new("00000000")
 }
 
-local VendorPurchase = {}
-Apollo.RegisterPackage(VendorPurchase, MODULE_NAME, 1, {"Vendor"})
 
 --- Standard Lua prototype class definition
 function VendorPurchase:new(o)
@@ -36,19 +39,14 @@ end
 --- Registers this addon wrapper.
 -- Called by PurchaseConfirmation during initialization.
 function VendorPurchase:Init()
-	-- Grab addon references for later use
-	self.vendor = Apollo.GetAddon("Vendor") -- real Vendor to hook
-	local addon = Apollo.GetAddon("PurchaseConfirmation") -- main addon, calling the shots
+	addon = Apollo.GetAddon("PurchaseConfirmation") -- main addon, calling the shots
+	module = self -- Current module
+	log = addon.log
+	vendor = Apollo.GetAddon("Vendor") -- real Vendor to hook
 	
-	-- Store log ref for easy access 
-	self.log = addon.log
-	
-	self.log:debug("VendorPurchase.Init: enter method")
-
 	-- Hook into Vendor
-	self.hook = self.vendor.FinalizeBuy -- store ref to original function
-	self.vendor.FinalizeBuy = self.InterceptPurchase -- replace Vendors FinalizeBuy with own interceptor
-
+	self.hook = vendor.FinalizeBuy -- store ref to original function
+	vendor.FinalizeBuy = self.InterceptPurchase -- replace Vendors FinalizeBuy with own interceptor
 		
 	-- Ensures an open confirm dialog is closed when leaving vendor range
 	-- NB: register the event so that it is fired on main addon, not this wrapper
@@ -61,11 +59,29 @@ function VendorPurchase:Init()
 	return self
 end
 
-function VendorPurchase:UpdateDialogDetails(monPrice, tCallbackData)
-	local addon = Apollo.GetAddon("PurchaseConfirmation") -- PurchaseConfirmation main adon
-	local module = addon.modules[MODULE_NAME] -- VendorPurchase module
+function VendorPurchase:OnDocLoaded()	
+	-- Check that XML document is properly loaded
+	if module.xmlDoc == nil or not module.xmlDoc:IsLoaded() then
+		Apollo.AddAddonErrorText(module, "XML document was not loaded")
+		log:error("XML document was not loaded")
+		return
+	end
+		
+	-- Load Vendor item purchase details form
+	local parent = addon.wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea")
+	module.wnd = Apollo.LoadForm(module.xmlDoc, "ItemLineForm", parent, module)
+	if module.wnd == nil then
+		Apollo.AddAddonErrorText(module, "Could not load the ConfirmDialog window")
+		log:error("OnDocLoaded: wndConfirmDialog is nil!")
+		return
+	end
 	
-	module.log:debug("VendorPurchase.PrepareDialogDetails: enter method")
+	module.wnd:Show(true, true)	
+	module.xmlDoc = nil
+end
+
+function VendorPurchase:UpdateDialogDetails(monPrice, tCallbackData)	
+	log:debug("PrepareDialogDetails: enter method")
 
 	local tItemData = tCallbackData.hookParams
 	local wnd = module.wnd
@@ -75,7 +91,7 @@ function VendorPurchase:UpdateDialogDetails(monPrice, tCallbackData)
 	wnd:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
 	wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
 	wnd:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
-	wnd:FindChild("CantUse"):Show(module.vendor:HelperPrereqFailed(tItemData))
+	wnd:FindChild("CantUse"):Show(vendor:HelperPrereqFailed(tItemData))
 	
 	-- Only show stack size count if we're buying more a >1 size stack
 	if (tItemData.nStackSize > 1) then
@@ -99,45 +115,20 @@ function VendorPurchase:UpdateDialogDetails(monPrice, tCallbackData)
 
 	-- Update tooltip to match current item
 	wnd:SetData(tItemData)	
-	module.vendor:OnVendorListItemGenerateTooltip(self.wnd, self.wnd)
+	vendor:OnVendorListItemGenerateTooltip(self.wnd, self.wnd)
 
 	return wnd
 end
 
 
-function VendorPurchase:OnDocLoaded()
-	local addon = Apollo.GetAddon("PurchaseConfirmation") -- PurchaseConfirmation main adon
-	local module = addon.modules[MODULE_NAME] -- VendorPurchase module
-		
-	-- Check that XML document is properly loaded
-	if module.xmlDoc == nil or not module.xmlDoc:IsLoaded() then
-		--Apollo.AddAddonErrorText(module, "XML document was not loaded")
-		module.log:error("XML document was not loaded")
-		return
-	end
-		
-	-- Load Vendor item purchase details form
-	local parent = addon.wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea")
-	module.wnd = Apollo.LoadForm(module.xmlDoc, "ItemLineForm", parent, module)
-	if module.wnd == nil then
-		Apollo.AddAddonErrorText(module, "Could not load the ConfirmDialog window")
-		self.log:error("OnDocLoaded: wndConfirmDialog is nil!")
-		return
-	end
-	
-	module.wnd:Show(true, true)	
-	module.xmlDoc = nil
-end
+
 
 
 --- Main hook interceptor function.
 -- Called on Vendor's "Purchase" buttonclick / item rightclick.
 -- @tItemData item being "operated on" (purchase, sold, buyback) on the Vendr
 function VendorPurchase:InterceptPurchase(tItemData)
-	local addon = Apollo.GetAddon("PurchaseConfirmation") -- PurchaseConfirmation main adon
-	local module = addon.modules[MODULE_NAME] -- VendorPurchase module
-	
-	module.log:debug("VendorPurchase.InterceptPurchase: enter method")
+	log:debug("InterceptPurchase: enter method")
 		
 	-- Store item details for easier debugging. Not actually used in application code.
 	module.tItemData = tItemData
@@ -159,15 +150,15 @@ function VendorPurchase:InterceptPurchase(tItemData)
 	]]
 		
 	-- Only check thresholds if this is a purchase (not sales, repairs or buybacks)
-	if not module.vendor.wndVendor:FindChild("VendorTab0"):IsChecked() then
-		module.log:info("VendorPurchase.InterceptPurchase: Not a purchase")
+	if not vendor.wndVendor:FindChild("VendorTab0"):IsChecked() then
+		log:info("InterceptPurchase: Not a purchase")
 		addon:CompletePurchase(tCallbackData)
 		return
 	end
 	
 	-- No itemdata on purchase, somehow... "this should never happen"
 	if not tItemData then
-		module.log:warn("VendorPurchase.InterceptPurchase: No tItemData")
+		log:warn("InterceptPurchase: No tItemData")
 		addon:CompletePurchase(tCallbackData)
 		return
 	end
@@ -175,7 +166,7 @@ function VendorPurchase:InterceptPurchase(tItemData)
 	-- Check if current currency is in supported-list
 	local tCurrency = addon:GetSupportedCurrencyByEnum(tItemData.tPriceInfo.eCurrencyType1)
 	if tCurrency == nil then
-		module.log:info("VendorPurchase.InterceptPurchase: Unsupported currentTypes " .. tostring(tItemData.tPriceInfo.eCurrencyType1) .. " and " .. tostring(tItemData.tPriceInfo.eCurrencyType2))
+		log:info("InterceptPurchase: Unsupported currentTypes " .. tostring(tItemData.tPriceInfo.eCurrencyType1) .. " and " .. tostring(tItemData.tPriceInfo.eCurrencyType2))
 		addon:CompletePurchase(tCallbackData)
 		return
 	end
@@ -199,11 +190,11 @@ end
 --- Extracts item price from tItemData
 -- @param tItemData Current purchase item data, as supplied by the Vendor addon
 function VendorPurchase:GetItemPrice(tItemData)
-	self.log:debug("VendorPurchase.GetItemPrice: enter method")
+	log:debug("GetItemPrice: enter method")
 		
 	-- NB: "itemData" is a table property on tItemData. Yeah.
 	local monPrice = tItemData.itemData:GetBuyPrice():Multiply(tItemData.nStackSize):GetAmount()
-	self.log:debug("VendorPurchase.GetItemPrice: Item price extracted: " .. monPrice)
+	log:debug("GetItemPrice: Item price extracted: " .. monPrice)
 
 	return monPrice
 end

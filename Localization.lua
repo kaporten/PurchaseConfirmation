@@ -27,27 +27,8 @@ function Localization.LocalizeDialog(wnd)
 	wnd:FindChild("FoldoutArea"):FindChild("ThresholdEmptyCoffers"):FindChild("Label"):SetText(L["Dialog_DetailsLabel_EmptyCoffers"])
 end
 
-function Localization.LocalizeSettings(wnd)
-	local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
 
-	wnd:FindChild("WindowTitle"):SetText(L["Settings_WindowTitle"])
-	wnd:FindChild("BalanceLabel"):SetText(L["Settings_Balance"])
-end
 
-function Localization.LocalizeSettingsTab(wnd)
-	local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
 
-	wnd:FindChild("FixedSection"):FindChild("EnableButtonLabel"):SetText(L["Settings_Threshold_Fixed_Enable"])
-	wnd:FindChild("FixedSection"):FindChild("Description"):SetText(L["Settings_Threshold_Fixed_Description"])
-
-	wnd:FindChild("PunySection"):FindChild("EnableButtonLabel"):SetText(L["Settings_Threshold_Puny_Enable"])
-	wnd:FindChild("PunySection"):FindChild("Description"):SetText(L["Settings_Threshold_Puny_Description"])
-
-	wnd:FindChild("AverageSection"):FindChild("EnableButtonLabel"):SetText(L["Settings_Threshold_Average_Enable"])
-	wnd:FindChild("AverageSection"):FindChild("Description"):SetText(L["Settings_Threshold_Average_Description"])
-
-	wnd:FindChild("EmptyCoffersSection"):FindChild("EnableButtonLabel"):SetText(L["Settings_Threshold_EmptyCoffers_Enable"])
-	wnd:FindChild("EmptyCoffersSection"):FindChild("Description"):SetText(L["Settings_Threshold_EmptyCoffers_Description"])
-end
 
 

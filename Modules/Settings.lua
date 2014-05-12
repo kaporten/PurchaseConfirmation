@@ -1,13 +1,127 @@
+require "Apollo"
+require "Window"
+
 --[[
 	Various functions for controlling the settings.
 ]]
 
-local PurchaseConfirmation = Apollo.GetAddon("PurchaseConfirmation")
-local log = PurchaseConfirmation.log
+-- Register module as package
+local Settings = {}
+local MODULE_NAME = "PurchaseConfirmation:Settings"
+Apollo.RegisterPackage(Settings, MODULE_NAME, 1, {"PurchaseConfirmation"})
+
+-- "glocals" set during Init
+local log
+
+--- Standard Lua prototype class definition
+function Settings:new(o)
+	o = o or {}
+	setmetatable(o, self)
+	self.__index = self 
+	return o
+end
+
+--- Registers the Settings module.
+-- Called by PurchaseConfirmation during initialization.
+function Settings:Init()
+	addon = Apollo.GetAddon("PurchaseConfirmation") -- main addon, calling the shots
+	log = addon.log
+			
+	-- Slash commands to manually open the settings window
+	Apollo.RegisterSlashCommand("purchaseconfirmation", "OnConfigure", self)
+	Apollo.RegisterSlashCommand("purconf", "OnConfigure", self)
+	
+	self.xmlDoc = XmlDoc.CreateFromFile("Modules/Settings.xml")
+	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
+	
+	return self
+end
+
+--- Called when XML document is fully loaded, ready to produce forms.
+function Settings:OnDocLoaded()	
+	-- Check that XML document is properly loaded
+	if self.xmlDoc == nil or not self.xmlDoc:IsLoaded() then
+		Apollo.AddAddonErrorText(self, "XML document was not loaded")
+		log:error("XML document was not loaded")
+		return
+	end
+		
+	-- Load Settings form
+	self.wndSettings = Apollo.LoadForm(self.xmlDoc, "SettingsForm", nil, self)
+	if self.wndSettings == nil then
+		Apollo.AddAddonErrorText(self, "Could not load the SettingsForm window")
+		log:error("Settings.OnDocLoaded: wndSettings is nil!")
+		return
+	end	
+	self.wndSettings:Show(false, true)
+	self:LocalizeSettings(self.wndSettings)
+	
+	-- Load currency-distinct
+	for i,tCurrency in ipairs(addon.seqCurrencies) do
+		-- Set text on header button (size of seqCurrencies must match actual button layout on SettingsForm!)
+		local btn = self.wndSettings:FindChild("CurrencyBtn" .. i)
+		btn:SetData(tCurrency)
+		btn:SetTooltip(tCurrency.strDescription)
+	
+		-- Load "individual currency panel" settings forms, and spawn one for each currency type
+		-- TODO: this breaks isolation. Move to self.
+		tCurrency.wndPanel = Apollo.LoadForm(self.xmlDoc, "SettingsCurrencyTabForm", self.wndSettings:FindChild("CurrencyTabArea"), self)
+		self:LocalizeSettingsTab(tCurrency.wndPanel)
+
+		if tCurrency.wndPanel == nil then
+			Apollo.AddAddonErrorText(self, "Could not load the CurrencyPanelForm window")
+			log:error("OnDocLoaded: wndPanel is nil!")
+			return
+		end
+		
+		if (i == 1) then		
+			tCurrency.wndPanel:Show(true, true)
+			self.wndSettings:FindChild("CurrencySelectorSection"):SetRadioSelButton("PurchaseConfirmation_CurrencySelection", btn)
+		else	
+			tCurrency.wndPanel:Show(false, true)
+		end
+				
+		tCurrency.wndPanel:SetName("CurrencyPanel_" .. tCurrency.strName) -- "CurrencyPanel_Credits" etc.
+		
+		-- Set appropriate currency type on amount fields
+		tCurrency.wndPanel:FindChild("FixedSection"):FindChild("Amount"):SetMoneySystem(tCurrency.eType)
+		tCurrency.wndPanel:FindChild("PunySection"):FindChild("Amount"):SetMoneySystem(tCurrency.eType)
+		log:debug("OnDocLoaded: Created currency panel for '" .. tostring(tCurrency.strName) .. "' (" .. tostring(tCurrency.eType) .. ")")
+	end
+
+	self.xmlDoc = nil
+end
+
+--- Localizes the main Settings window
+function Settings:LocalizeSettings(wnd)
+	local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
+
+	wnd:FindChild("WindowTitle"):SetText(L["Settings_WindowTitle"])
+	wnd:FindChild("BalanceLabel"):SetText(L["Settings_Balance"])
+end
+
+--- Localize an individual settings tab
+function Settings:LocalizeSettingsTab(wnd)
+	local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
+
+	wnd:FindChild("FixedSection"):FindChild("EnableButtonLabel"):SetText(L["Settings_Threshold_Fixed_Enable"])
+	wnd:FindChild("FixedSection"):FindChild("Description"):SetText(L["Settings_Threshold_Fixed_Description"])
+
+	wnd:FindChild("PunySection"):FindChild("EnableButtonLabel"):SetText(L["Settings_Threshold_Puny_Enable"])
+	wnd:FindChild("PunySection"):FindChild("Description"):SetText(L["Settings_Threshold_Puny_Description"])
+
+	wnd:FindChild("AverageSection"):FindChild("EnableButtonLabel"):SetText(L["Settings_Threshold_Average_Enable"])
+	wnd:FindChild("AverageSection"):FindChild("Description"):SetText(L["Settings_Threshold_Average_Description"])
+
+	wnd:FindChild("EmptyCoffersSection"):FindChild("EnableButtonLabel"):SetText(L["Settings_Threshold_EmptyCoffers_Enable"])
+	wnd:FindChild("EmptyCoffersSection"):FindChild("Description"):SetText(L["Settings_Threshold_EmptyCoffers_Description"])
+end
+
 
 -- Shows the Settings window, after populating it with current data.
 -- Invoked from main Addon list via Configure, or registered slash commands. 
-function PurchaseConfirmation:OnConfigure()
+function Settings:OnConfigure()
+	log:info("Configure")
 	-- Update values on GUI with current settings before showing
 	self:PopulateSettingsWindow()
 	self:UpdateBalance()
@@ -17,16 +131,16 @@ function PurchaseConfirmation:OnConfigure()
 end
 
 -- Populates the settings window with current configuration values (for all currency types)
-function PurchaseConfirmation:PopulateSettingsWindow()
+function Settings:PopulateSettingsWindow()
 	-- Loop over all supported currencytypes, populate each one with current settings
-	for _,currencyType in ipairs(self.seqCurrencies) do
+	for _,currencyType in ipairs(addon.seqCurrencies) do
 		local wndCurrency = currencyType.wndPanel
-		local tCurrencySettings = self.tSettings[currencyType.strName]
+		local tCurrencySettings = addon.tSettings[currencyType.strName]
 		self:PopulateSettingsWindowForCurrency(wndCurrency, tCurrencySettings)
 	end
 end
 
-function PurchaseConfirmation:UpdateBalance()
+function Settings:UpdateBalance()
 	-- Find checked (displayed) currency type, update balance window
 	local tCurrency = self.wndSettings:FindChild("CurrencySelectorSection"):GetRadioSelButton("PurchaseConfirmation_CurrencySelection"):GetData()
 	self.wndSettings:FindChild("Balance"):SetMoneySystem(tCurrency.eType)
@@ -34,7 +148,7 @@ function PurchaseConfirmation:UpdateBalance()
 end
 
 -- Populates the currency control form for a single currency-type
-function PurchaseConfirmation:PopulateSettingsWindowForCurrency(wndCurrencyControl, tSettings)
+function Settings:PopulateSettingsWindowForCurrency(wndCurrencyControl, tSettings)
 	--[[
 		For each individual field, check if a value exist in tSettings,
 		and set the value in the corresponding UI field.
@@ -63,7 +177,7 @@ end
 
 -- Restores saved settings into the tSettings structure.
 -- Invoked during game load.
-function PurchaseConfirmation:RestoreSettings(tSavedData)
+function Settings:RestoreSettings(tSavedData)
 	--[[
 		To gracefully handle changes to the config-structure across different versions of savedata:
 		1) Prepare a set of global default values
@@ -83,7 +197,8 @@ function PurchaseConfirmation:RestoreSettings(tSavedData)
 end
 
 -- Addonv 0.7 settings; "flat", and only supports Credits.
-function PurchaseConfirmation:FillSettings_0_7(tSettings, tSavedData)
+function Settings:FillSettings_0_7(tSettings, tSavedData)
+	log:debug("Restoring v0.7-style saved settings")
 	if type(tSavedData) == "table" then -- should be outer settings table
 		local tTarget = tSettings["Credits"]
 	
@@ -108,9 +223,10 @@ function PurchaseConfirmation:FillSettings_0_7(tSettings, tSavedData)
 end
 
 -- Addon v0.8 settings; "layered", and supports multiple currencies
-function PurchaseConfirmation:FillSettings_0_8(tSettings, tSavedData)
-	if type(tSavedData) == "table" then -- should be outer settings table
-		for _,v in ipairs(self.seqCurrencies) do
+function Settings:FillSettings_0_8(tSettings, tSavedData)
+	log:debug("Restoring v0.8-style saved settings")
+	if type(tSavedData) == "table" then -- should be outer settings table	
+		for _,v in ipairs(addon.seqCurrencies) do
 			if type(tSavedData[v.strName]) == "table" then -- should be individual currency table table
 				local tSaved = tSavedData[v.strName] -- assumed present in default settings
 				local tTarget = tSettings[v.strName]
@@ -143,13 +259,14 @@ function PurchaseConfirmation:FillSettings_0_8(tSettings, tSavedData)
 end
 
 -- Returns a set of current-version default settings for all currency types
-function PurchaseConfirmation:DefaultSettings()
+function Settings:DefaultSettings()
+	log:debug("Preparing default settings")
 
 	-- Contains individual settings for all currency types
 	local tAllSettings = {}
 
 	-- Initially populate all currency type with "conservative" / generic default values
-	for _,v in ipairs(self.seqCurrencies) do
+	for _,v in ipairs(addon.seqCurrencies) do
 		local t = {}
 		tAllSettings[v.strName] = t
 		
@@ -181,24 +298,24 @@ function PurchaseConfirmation:DefaultSettings()
 end
 
 -- When the settings window is closed via Cancel, revert all changed values to current config
-function PurchaseConfirmation:OnCancelSettings()
+function Settings:OnCancelSettings()
 	-- Hide settings window, without saving any entered values. 
 	-- Settings GUI will revert to old values on next OnConfigure
 	self.wndSettings:Show(false, true)	
 end
 
 -- Extracts settings fields one by one, and updates tSettings accordingly.
-function PurchaseConfirmation:OnAcceptSettings()
+function Settings:OnAcceptSettings()
 	-- Hide settings window
 	self.wndSettings:Show(false, true)
 	
 	-- For all currencies, extract UI values into settings
-	for _,v in ipairs(self.seqCurrencies) do
-		self:AcceptSettingsForCurrency(v.wndPanel, self.tSettings[v.strName])
+	for _,v in ipairs(addon.seqCurrencies) do
+		self:AcceptSettingsForCurrency(v.wndPanel, addon.tSettings[v.strName])
 	end
 end
 
-function PurchaseConfirmation:AcceptSettingsForCurrency(wndPanel, tSettings)
+function Settings:AcceptSettingsForCurrency(wndPanel, tSettings)
 	
 	--[[ FIXED THRESHOLD SETTINGS ]]	
 	
@@ -271,7 +388,7 @@ function PurchaseConfirmation:AcceptSettingsForCurrency(wndPanel, tSettings)
 end
 
 -- Extracts text-field as a number within specified bounts. Reverts text field to currentValue if input value is invalid.
-function PurchaseConfirmation:ExtractOrRevertSettingNumber(wndField, strName, currentValue, minValue, maxValue)
+function Settings:ExtractOrRevertSettingNumber(wndField, strName, currentValue, minValue, maxValue)
 	local textValue = wndField:GetText()
 	local newValue = tonumber(textValue)
 
@@ -299,7 +416,7 @@ function PurchaseConfirmation:ExtractOrRevertSettingNumber(wndField, strName, cu
 end
 
 -- Extracts an amount-field, and logs if it is changed from currentValue
-function PurchaseConfirmation:ExtractSettingAmount(wndField, strName, currentValue)
+function Settings:ExtractSettingAmount(wndField, strName, currentValue)
 	local newValue = wndField:GetAmount()
 	if newValue == currentValue then
 		log:debug("Settings.ExtractSettingAmount: Field " .. tostring(strName) .. ": value '" .. tostring(newValue) .. "' is unchanged")
@@ -310,7 +427,7 @@ function PurchaseConfirmation:ExtractSettingAmount(wndField, strName, currentVal
 end
 
 -- Extracts a checkbox-field, and logs if it is changed from currentValue
-function PurchaseConfirmation:ExtractSettingCheckbox(wndField, strName, currentValue)
+function Settings:ExtractSettingCheckbox(wndField, strName, currentValue)
 	local newValue = wndField:IsChecked()
 	if newValue == currentValue then
 		log:debug("Settings.ExtractSettingCheckbox: Field " .. strName .. ": value '" .. tostring(newValue) .. "' is unchanged")
@@ -325,9 +442,9 @@ end
 -- Currency tab selection
 ---------------------------------------------------------------------------------------------------
 
-function PurchaseConfirmation:OnCurrencySelection(wndHandler, wndControl)
+function Settings:OnCurrencySelection(wndHandler, wndControl)
 	local tCurrency = wndHandler:GetData()
-		for k,v in ipairs(self.seqCurrencies) do
+		for k,v in ipairs(addon.seqCurrencies) do
 		if v.strName == tCurrency.strName then
 			v.wndPanel:Show(true, true)
 		else
