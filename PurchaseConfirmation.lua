@@ -17,42 +17,35 @@ require "Window"
 require "Money"
 require "Item"
 
+
+-- Development mode settings. Should be false/"ERROR" for release builds.
+-- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
+local DEBUG_MODE = false 
+local LOG_LEVEL = "ERROR"
+
+	
 -- Addon object itself
 local PurchaseConfirmation = {} 
-	
--- Gemini logging ref stored in chunk for logging shorthand methods
--- TODO: either use Gemini logging "raw", or create a real wrapper class for it.
+
+-- GeminiLogging, configured during initialization
 local log
+
+-- GeminiLocale
+local locale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
  
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = {1, 0, 0} -- major, minor, bugfix
+local ADDON_VERSION = {2, 0, 0} -- major, minor, bugfix
 
--- Should be false/"ERROR" for release builds
-local DEBUG_MODE = false -- Debug mode = never actually delegate to Vendor (never actually purchase stuff)
-local LOG_LEVEL = "ERROR" -- Only log errors, not info/debug/warn
+-- Height of the details-foldout
+local FOLDOUT_HEIGHT = 100
 
--- Vendor addon references
-local VENDOR_ADDON_NAME = "Vendor" -- Used when loading/declaring dependencies to Vendor
-local VENDOR_BUY_TAB_NAME = "VendorTab0" -- Used to check if the Vendor used to buy or sell etc
-
-local DETAIL_WINDOW_HEIGHT = 100
-
-local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation", true)
-
-
--- Copied from the Util addon. Used to set item quality borders on the confirmation dialog
--- TODO: Figure out how to use list in Util addon itself.
-local qualityColors = {
-	ApolloColor.new("ItemQuality_Inferior"),
-	ApolloColor.new("ItemQuality_Average"),
-	ApolloColor.new("ItemQuality_Good"),
-	ApolloColor.new("ItemQuality_Excellent"),
-	ApolloColor.new("ItemQuality_Superb"),
-	ApolloColor.new("ItemQuality_Legendary"),
-	ApolloColor.new("ItemQuality_Artifact"),
-	ApolloColor.new("00000000")
+-- Names of modules to load during initialization
+local moduleNames = {
+	"PurchaseConfirmation:Settings",
+	"PurchaseConfirmation:VendorPurchase",
 }
+
 
 -- Standard object instance creation
 function PurchaseConfirmation:new(o)
@@ -66,7 +59,7 @@ end
 function PurchaseConfirmation:Init()
 	local bHasConfigureFunction = true
 	local strConfigureButtonText = "Purchase Conf."
-	local tDependencies = {VENDOR_ADDON_NAME, "Util", "Gemini:Logging-1.2",}
+	local tDependencies = {VENDOR_ADDON_NAME, "Gemini:Logging-1.2",}
 	
 	Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
@@ -81,18 +74,21 @@ function PurchaseConfirmation:OnLoad()
 		appender = "GeminiConsole"
 	}
 	log = Apollo.GetPackage("Gemini:Logging-1.2").tPackage:GetLogger(opt)		
-	logdebug("OnLoad", "GeminiLogging configured")
+	log:debug("OnLoad: GeminiLogging configured")
+
+	-- Store ref to log in addon, so that modules can access it via GetAddon.
+	self.log = log
 	
 	--[[
 		Supported currencies. Fields:
 			eType = currency enum type used by Apollo API
 			strName = hardcoded name for the currency, to be referenced in saved config (to disconnect from enum ordering)
-			strDescription = description of the currency type -- not used anywhere yet
-			wndPanel = handle to settings window panel for this currency, to be populated in OnDocLoaded
+			strDescription = description of the currency type
+			wndPanel = handle to settings window panel for this currency, populated by Settings module
 	]]
 	-- Order of elements must match Settings GUI button layout
 	self.seqCurrencies = {																		
-		{eType = Money.CodeEnumCurrencyType.Credits,			strName = "Credits",			strDescription = Apollo.GetString("CRB_Credits_Desc")},
+		{eType = Money.CodeEnumCurrencyType.Credits,			strName = "Credits",			strDescription = ""}, --Apollo.GetString("CRB_Credits_Desc") just produce "#CRB_Credits_Desc#"},
 		{eType = Money.CodeEnumCurrencyType.Renown,				strName = "Renown",				strDescription = Apollo.GetString("CRB_Renown_Desc")},
 		{eType = Money.CodeEnumCurrencyType.Prestige,			strName = "Prestige",			strDescription = Apollo.GetString("CRB_Prestige_Desc")},
 		{eType = Money.CodeEnumCurrencyType.CraftingVouchers,	strName = "CraftingVouchers",	strDescription = Apollo.GetString("CRB_Crafting_Voucher_Desc")},
@@ -100,159 +96,84 @@ function PurchaseConfirmation:OnLoad()
 	}
 	self.currentCurrencyIdx = 1 -- Default, show idx 1 on settings
 		
-	-- tSettings will be poulated prior to OnLoad, in OnRestore if saved settings exist
-	-- If not, set to a clean default
-	if self.tSettings == nil then
-		self.tSettings = self:DefaultSettings()
-	end
-
-	-- Store original Vendor function, Inject own version into Vendor addon
-	self.vendorFinalizeBuy = Apollo.GetAddon(VENDOR_ADDON_NAME).FinalizeBuy -- store ref to original function
-	Apollo.GetAddon(VENDOR_ADDON_NAME).FinalizeBuy = PurchaseConfirmation.CheckPurchase -- replace Vendors FinalizeBuy with own	
-	
-	-- Ensures an open confirm dialog is closed when leaving vendor range
-	Apollo.RegisterEventHandler("CloseVendorWindow", "OnCancelPurchase", self)	
-	
-	-- Slash commands to manually open the settings window
-	Apollo.RegisterSlashCommand("purchaseconfirmation", "OnConfigure", self)
-	Apollo.RegisterSlashCommand("purconf", "OnConfigure", self)
-	
 	-- Load the XML file and await callback
 	self.xmlDoc = XmlDoc.CreateFromFile("PurchaseConfirmation.xml")
-	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
-	
-	logexit("OnLoad")
+	self.xmlDoc:RegisterCallback("OnDocLoaded", self)	
 end
 
 -- Called when XML doc is fully loaded/parsed. Create and configure forms.
-function PurchaseConfirmation:OnDocLoaded()
-	logenter("OnDocLoaded")
-	
-	local Localization = Apollo.GetPackage("PurchaseConfirmation:Localization").tPackage
-		
+function PurchaseConfirmation:OnDocLoaded()	
 	-- Check that XML document is properly loaded
 	if self.xmlDoc == nil or not self.xmlDoc:IsLoaded() then
 		Apollo.AddAddonErrorText(self, "XML document was not loaded")
-		logerror("XML document was not loaded")
+		log:error("OnDocLoaded: XML document was not loaded")
 		return
 	end
 		
 	-- Load confirmation dialog form 
-	self.wndConfirmDialog = Apollo.LoadForm(self.xmlDoc, "DialogForm", nil, self)
-	Localization.LocalizeDialog(self.wndConfirmDialog)
-	if self.wndConfirmDialog == nil then
+	self.wndDialog = Apollo.LoadForm(self.xmlDoc, "DialogForm", nil, self)
+	if self.wndDialog == nil then
 		Apollo.AddAddonErrorText(self, "Could not load the ConfirmDialog window")
-		logerror("OnDocLoaded", "wndConfirmDialog is nil!")
+		log:error("OnDocLoaded: wndDialog is nil!")
 		return
 	end
-	self.wndConfirmDialog:Show(false, true)	
+	self:LocalizeDialog(self.wndDialog)
 	
 	-- Dialog form has details-foldout enabled in Hudson for editability. Collapse it by default
 	self:OnDetailsButtonUncheck()
-
-	-- Load settings dialog form
-	self.wndSettings = Apollo.LoadForm(self.xmlDoc, "SettingsForm", nil, self)
-	Localization.LocalizeSettings(self.wndSettings)
-	if self.wndSettings == nil then
-		Apollo.AddAddonErrorText(self, "Could not load the SettingsForm window")
-		logerror("OnDocLoaded", "wndSettings is nil!")
-		return
-	end	
-	self.wndSettings:Show(false, true)
-	
-	
-	for i,tCurrency in ipairs(self.seqCurrencies) do
-		-- Set text on header button (size of seqCurrencies must match actual button layout on SettingsForm!)
-		local btn = self.wndSettings:FindChild("CurrencyBtn" .. i)
-		btn:SetData(tCurrency)
-	
-		-- Load "individual currency panel" settings forms, and spawn one for each currency type
-		tCurrency.wndPanel = Apollo.LoadForm(self.xmlDoc, "SettingsCurrencyTabForm", self.wndSettings:FindChild("CurrencyTabArea"), self)
-		Localization.LocalizeSettingsTab(tCurrency.wndPanel)
-
-		if tCurrency.wndPanel == nil then
-			Apollo.AddAddonErrorText(self, "Could not load the CurrencyPanelForm window")
-			logerror("OnDocLoaded", "wndPanel is nil!")
-			return
-		end
-		
-		if (i == 1) then		
-			tCurrency.wndPanel:Show(true, true)
-			self.wndSettings:FindChild("CurrencySelectorSection"):SetRadioSelButton("PurchaseConfirmation_CurrencySelection", btn)
-		else	
-			tCurrency.wndPanel:Show(false, true)
-		end
-				
-		tCurrency.wndPanel:SetName("CurrencyPanel_" .. tCurrency.strName) -- "CurrencyPanel_Credits" etc.
-		
-		-- Set appropriate currency type on amount fields
-		tCurrency.wndPanel:FindChild("FixedSection"):FindChild("Amount"):SetMoneySystem(tCurrency.eType)
-		tCurrency.wndPanel:FindChild("PunySection"):FindChild("Amount"):SetMoneySystem(tCurrency.eType)
-		logdebug("OnDocLoaded", "Configured currency-settings for '" .. tostring(tCurrency.strName) .. "' (" .. tostring(tCurrency.eType) .. ")")
-	end
-		
+	self.wndDialog:Show(false, true)	
+			
 	-- Now that forms are loaded, remove XML doc for gc
 	self.xmlDoc = nil
-	
+		
+	-- Load modules
+	self.modules = {}
+	for k,v in ipairs(moduleNames) do
+		self.modules[v] = Apollo.GetPackage(v).tPackage:new():Init()
+	end
+
+	-- Now that the Settings module is loaded, use it to restore previously saved settings
+	if self.tSavedSettings == nil then
+		log:info("No saved settings, using default")	
+		self.tSettings = self.modules["PurchaseConfirmation:Settings"]:DefaultSettings()
+	else
+		log:info("Restoring saved settings")
+		self.tSettings = self.modules["PurchaseConfirmation:Settings"]:RestoreSettings(self.tSavedSettings)
+		self.tSavedData = nil
+	end	
+		
 	-- If running debug-mode, warn user (should never make it into production)
 	if DEBUG_MODE == true then
 		Print("Addon '" .. ADDON_NAME .. "' running in debug-mode! Vendor purchases are disabled. Please contact me via Curse if you ever see this, since I probably forgot to disable debug-mode before releasing. For shame :(")
 	end
-	
-	logexit("OnDocLoaded")
 end
 
--- Called on Vendor's "Purchase" buttonclick, hijacked
-function PurchaseConfirmation:CheckPurchase(tItemData)
-	logenter("CheckPurchase")
-	
-	-- CheckPurchase is called by Vendor, not PurchaseConfirmation. So "self" targets Vendor.	
-	-- Get reference to PurchaseConfirmation addon to use in this Vendor-initialized callstack.	
-	local addon = Apollo.GetAddon(ADDON_NAME)
-	
-	-- Store itemdata in addon for easier debugging. Not used in application code.
-	addon.tItemData = tItemData 
-	
-	--[[ SKIP UNSUPPORTED CASES ]]
-	
-	-- Only execute any checks during purchases (not sales, repairs or buybacks)
-	if not Apollo.GetAddon(VENDOR_ADDON_NAME).wndVendor:FindChild(VENDOR_BUY_TAB_NAME):IsChecked() then
-		loginfo("CheckPurchase", "Not a purchase")
-		addon:DelegateToVendor(tItemData)
-		return
-	end
-	
-	-- No itemdata on purchase, somehow... "this should never happen"
-	if not tItemData then
-		logwarn("CheckPurchase", "No tItemData")
-		addon:DelegateToVendor(tItemData)
-		return
-	end
+--- Use GeminiLocale to localize static fields on the dialog.
+function PurchaseConfirmation:LocalizeDialog(wnd)	
+	wnd:FindChild("DialogArea"):FindChild("Title"):SetText(locale["Dialog_WindowTitle"])
+	wnd:FindChild("DialogArea"):FindChild("DetailsButton"):SetText("   " .. locale["Dialog_ButtonDetails"]) -- 3 spaces as leftpadding
 
-	-- Check if current currency is in supported-list
-	local tCurrency = addon:GetSupportedCurrencyByEnum(tItemData.tPriceInfo.eCurrencyType1)
-	if tCurrency == nil then
-		loginfo("CheckPurchase", "Unsupported currentTypes " .. tostring(tItemData.tPriceInfo.eCurrencyType1) .. " and " .. tostring(tItemData.tPriceInfo.eCurrencyType2))
-		addon:DelegateToVendor(tItemData)
-		return
-	end
+	wnd:FindChild("FoldoutArea"):FindChild("ThresholdFixed"):FindChild("Label"):SetText(locale["Dialog_DetailsLabel_Fixed"])
+	wnd:FindChild("FoldoutArea"):FindChild("ThresholdAverage"):FindChild("Label"):SetText(locale["Dialog_DetailsLabel_Average"])
+	wnd:FindChild("FoldoutArea"):FindChild("ThresholdEmptyCoffers"):FindChild("Label"):SetText(locale["Dialog_DetailsLabel_EmptyCoffers"])
+end
+
+--- Called by addon-hook when a purchase is taking place.
+function PurchaseConfirmation:PriceCheck(tPurchaseData)
+	log:debug("PriceCheck: enter method")
 	
-	
-	--[[ CHECK THRESHOLDS ]]
-	
-	-- Extract current purchase price from tItemdata
-	local monPrice = addon:GetItemPrice(tItemData)
-	
-	-- Get local ref to currency-specific settings
-	local tSettings = addon.tSettings[tCurrency.strName]
+	-- Get local ref to currency-specific threshold settings
+	local tSettings = self.tSettings[tPurchaseData.tCurrency.strName]
+	local tCurrency = tPurchaseData.tCurrency
+	local monPrice = tPurchaseData.monPrice
 	
 	-- Check if price is below puny limit
 	if tSettings.tPuny.bEnabled then
-		local monPunyLimit = addon:GetPunyLimit(tSettings)
+		local monPunyLimit = tSettings.tPuny.monThreshold
 		if monPunyLimit and monPrice < monPunyLimit then
-			-- Price is below puny-limit, delegate to Vendor without adding price to history
-			loginfo("CheckPurchase", "Puny amount " .. monPrice .. " ignored")
-			addon:DelegateToVendor(tItemData)
+			-- Price is below puny-limit, complete purchase (without adding price to history etc)
+			log:info("Vendor.FinalizeBuy: Puny amount " .. monPrice .. " ignored")
+			self:CompletePurchase(tPurchaseData.tCallbackData)
 			return
 		end
 	end
@@ -270,7 +191,7 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 			strType = "Average"
 		},
 		emptyCoffers = { -- Empty Coffers threshold config
-			monThreshold = addon:GetEmptyCoffersThreshold(tSettings, tCurrency),
+			monThreshold = self:GetEmptyCoffersThreshold(tSettings, tCurrency),
 			bEnabled = tSettings.tEmptyCoffers.bEnabled,
 			strType = "EmptyCoffers"
 		},
@@ -279,201 +200,133 @@ function PurchaseConfirmation:CheckPurchase(tItemData)
 	-- Check all thresholds in order, register breach status on threshold table
 	local bRequestConfirmation = false
 	for _,v in pairs(tThresholds) do
-		local bBreached = addon:IsThresholdBreached(v, tItemData, monPrice)
-		v.bBreached = bBreached
+		v.bBreached = self:IsThresholdBreached(v, monPrice)		
 		
 		-- Track if any of them were breached
-		if bBreached then
+		if v.bBreached then
 			bRequestConfirmation = true
 		end
 	end
 
 	-- If confirmation is required, show dialog and DO NOT proceed to confirm purchase	
 	if bRequestConfirmation then
-		addon:RequestPurchaseConfirmation(tThresholds, tItemData, monPrice)
+		self:RequestConfirmation(tPurchaseData, tThresholds)
 		return 
 	end
 	
-	-- No thresholds breached, just confirm purchase
-	addon:ConfirmPurchase(tItemData)
+	-- No thresholds breached, just update price history and complete purchase
+	self:UpdateAveragePriceHistory(tSettings, monPrice)
+	self:CompletePurchase(tPurchaseData.tCallbackData)
 end
 
--- Empty coffers threshold is a % of the players total credit
-function PurchaseConfirmation:GetEmptyCoffersThreshold(tSettings, tCurrency)
-	logenter("GetEmptyCoffersThreshold")
-	local monCurrentPlayerCash = GameLib.GetPlayerCurrency(tCurrency.eType):GetAmount()
-	local threshold = math.floor(monCurrentPlayerCash * (tSettings.tEmptyCoffers.nPercent/100))
-	logdebug("GetEmptyCoffersThreshold", "Empty coffers threshold calculated for " .. tCurrency.strName .. ": " .. tostring(tSettings.tEmptyCoffers.nPercent) .. "% of " .. tostring(monCurrentPlayerCash) .. " = " .. tostring(threshold))
-	logexit("GetEmptyCoffersThreshold")
-	return threshold
-end
 
--- Checks if a given threshold is enabled & breached
-function PurchaseConfirmation:IsThresholdBreached(tThreshold, tItemData, monPrice)
-	logenter("IsThresholdBreached")
-	
-	-- Is threshold enabled?
-	if not tThreshold.bEnabled then
-		logdebug("IsThresholdBreached", "Threshold type " .. tThreshold.strType .. " disabled, skipping price check")
-		return false
-	end
-	
-	-- Is threshold available?
-	if not tThreshold.monThreshold or tThreshold.monThreshold < 0 then
-		logdebug("IsThresholdBreached", "Threshold type " .. tThreshold.strType .. " has no active amount, skipping price check")
-		return false
-	end
-	
-	-- Is threshold breached?
-	if monPrice > tThreshold.monThreshold then
-		loginfo("IsThresholdBreached", tThreshold.strType .. " threshold, unsafe amount (amount>=threshold): " .. monPrice  .. ">=" .. tThreshold.monThreshold)
-		return true
-	else
-		-- safe amount
-		loginfo("IsThresholdBreached", tThreshold.strType .. " threshold, safe amount (amount<threshold): " .. monPrice  .. "<" .. tThreshold.monThreshold)
-		return false
-	end
-end
-
--- Gets item price from tItemData
-function PurchaseConfirmation:GetItemPrice(tItemData)
-	logenter("GetItemPrice")
-		
-	-- NB: "itemData" is a table property on tItemData. Yeah.
-	local monPrice = tItemData.itemData:GetBuyPrice():Multiply(tItemData.nStackSize):GetAmount()
-	logdebug("GetItemPrice", "Item price extracted: " .. monPrice)
-	
-	logexit("GetItemPrice")
-	return monPrice
-end
-
--- Determines the current punyLimit
-function PurchaseConfirmation:GetPunyLimit(tSettings)
-	logenter("GetPunyLimit")
-
-	-- No more of that confusing level-scaling stuff
-	local monPunyLimit = tSettings.tPuny.monThreshold
-	
-	logexit("GetPunyLimit")
-	return monPunyLimit
-end
-
--- Price for current purchase is unsafe: show warning dialogue
+--- Price for current purchase is unsafe: show confirmation dialogue
 -- Configure all relevant fields & display properties in confirmation dialog before showing
-function PurchaseConfirmation:RequestPurchaseConfirmation(tThresholds, tItemData, monPrice)
-	logenter("RequestPurchaseConfirmation")
+-- @param tThresholds Detailed data on which thresholds were breached
+-- @param tCallbackData Addonhook-specific callback data
+function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
+	local tCallbackData = tPurchaseData.tCallbackData
+	local monPrice = tPurchaseData.monPrice
+	local tCurrency = tPurchaseData.tCurrency
 	
-	local addon = Apollo.GetAddon(ADDON_NAME)
-	local vendor = Apollo.GetAddon(VENDOR_ADDON_NAME)
-	local wndDialog = self.wndConfirmDialog
-	wndDialog:SetData(tItemData)
-
-	-- Store item details on addon for easier debugging (not used in application code)	
-	addon.itemDetailInfo = Item.GetDetailedInfo(tItemData)
-
-		
-	--[[ BASIC DIALOG DATA ]]
-
-	-- Basic info
-	local wndMainDialogArea = wndDialog:FindChild("DialogArea")
-	wndMainDialogArea:FindChild("ItemName"):SetText(tItemData.strName)
-	wndMainDialogArea:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
-	wndMainDialogArea:FindChild("ItemPrice"):SetAmount(monPrice, true)
-	wndMainDialogArea:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
-	wndMainDialogArea:FindChild("CantUse"):Show(vendor:HelperPrereqFailed(tItemData))
-
-	-- Only show stack size count if we're buying more a >1 size stack
-	if (tItemData.nStackSize > 1) then
-		wndMainDialogArea:FindChild("StackSize"):SetText(tItemData.nStackSize)
-		wndMainDialogArea:FindChild("StackSize"):Show(true, true)
-	else
-		wndMainDialogArea:FindChild("StackSize"):Show(false, true)
+	-- Prepare central details area	
+	local wndDetails = tCallbackData.module:UpdateDialogDetails(monPrice, tCallbackData)
+	
+	-- Hide all detail children
+	local children = self.wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea"):GetChildren()
+	for _,v in pairs(children) do
+		-- ... except vendor-specific info for the module which caused this price check
+		v:Show(false, true)
 	end
+	wndDetails:Show(true, true)
 	
-	-- Extract item quality
-	local eQuality = tonumber(Item.GetDetailedInfo(tItemData).tPrimary.eQuality)
-
-	-- Add pixie quality-color border to the ItemIcon element
-	local tPixieOverlay = {
-		strSprite = "UI_BK3_ItemQualityWhite",
-		loc = {fPoints = {0, 0, 1, 1}, nOffsets = {0, 0, 0, 0}},
-		cr = qualityColors[math.max(1, math.min(eQuality, #qualityColors))]
-	}	
-	wndMainDialogArea:FindChild("ItemIcon"):AddPixie(tPixieOverlay)
-
-	-- Update tooltip to match current item
-	local itemArea = wndMainDialogArea:FindChild("ItemArea")
-	itemArea:SetData(tItemData)
-	vendor:OnVendorListItemGenerateTooltip(itemArea, itemArea) -- Yes, params are switched!
-
+	-- Prepare foldout area	
+	local wndFoldout = self.wndDialog:FindChild("FoldoutArea")
+	self:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdFixed"), 		tThresholds.fixed, 			tCurrency)
+	self:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdAverage"),		tThresholds.average, 		tCurrency)
+	self:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdEmptyCoffers"), 	tThresholds.emptyCoffers, 	tCurrency)
 		
-	-- [[ DETAILED THRESHOLD AREA ]]
+	-- Set full purchase on dialog window
+	self.wndDialog:SetData(tPurchaseData)
 	
-	-- Set detailed dialog data. For now, assume Fixed,Average,EmptyCoffers ordering in input
-	local wndDetails = self.wndConfirmDialog:FindChild("DetailsArea")
-	addon:UpdateConfirmationDetailsLine(tItemData, tThresholds.fixed, wndDetails:FindChild("ThresholdFixed"))
-	addon:UpdateConfirmationDetailsLine(tItemData, tThresholds.average, wndDetails:FindChild("ThresholdAverage"))
-	addon:UpdateConfirmationDetailsLine(tItemData, tThresholds.emptyCoffers, wndDetails:FindChild("ThresholdEmptyCoffers"))
-	
-	
-	--[[
-		Deactivate main vendor window while waiting for input, to avoid
-		multiple unconfirmed purchases interfering with eachother.
-		Remember to enable Vendor again, for any possible dialog exit-path!
-	]]
-	Apollo.GetAddon(VENDOR_ADDON_NAME).wndVendor:Enable(false)
-	wndDialog:ToFront()
-	wndDialog:Show(true)
-	
-	logexit("RequestPurchaseConfirmation")
+	-- Show dialog, await button click
+	self.wndDialog:ToFront()
+	self.wndDialog:Show(true)
 end
+
+
+--- Called when a purchase should be fully completed against "bakcend" addon.
+-- @param tCallbackData hook/data structure supplied by addon-wrapper which initiated the purchase
+function PurchaseConfirmation:CompletePurchase(tCallbackData)
+	log:debug("CompletePurchase: enter method")	
+	
+	-- Delegate to supplied hook method, unless debug mode is on
+	if DEBUG_MODE == true then
+		Print("PurchaseConfirmation: purchase ignored!")
+	else
+		tCallbackData.hook(tCallbackData.hookedAddon, tCallbackData.hookParams)
+	end	
+end
+
 
 -- Sets current display values on a single "details line" on the confirmation dialog
-function PurchaseConfirmation:UpdateConfirmationDetailsLine(tItemData, tThreshold, wndLine)
-	logenter("UpdateConfirmationDetailsLine")
+function PurchaseConfirmation:UpdateConfirmationDetailsLine(wndLine, tThreshold, tCurrency)
 	wndLine:FindChild("Amount"):SetAmount(tThreshold.monThreshold, true)
-	wndLine:FindChild("Amount"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
+	wndLine:FindChild("Amount"):SetMoneySystem(tCurrency.eType)
 
 	if tThreshold.bEnabled then
 		wndLine:FindChild("Icon"):Show(tThreshold.bBreached)
 		wndLine:FindChild("Label"):SetTextColor("xkcdLightGrey")
 		wndLine:FindChild("Amount"):SetTextColor("xkcdLightGrey")
 		if tThreshold.bBreached then
-			wndLine:SetTooltip(L["Dialog_DetailsTooltip_Breached"])
+			wndLine:SetTooltip(locale["Dialog_DetailsTooltip_Breached"])
 		else
-			wndLine:SetTooltip(L["Dialog_DetailsTooltip_NotBreached"])
+			wndLine:SetTooltip(locale["Dialog_DetailsTooltip_NotBreached"])
 		end
 	else
 		wndLine:FindChild("Icon"):Show(false)
 		wndLine:FindChild("Label"):SetTextColor("xkcdMediumGrey")
 		wndLine:FindChild("Amount"):SetTextColor("xkcdMediumGrey")
-		wndLine:SetTooltip(L"Threshold is disabled")
+		wndLine:SetTooltip(locale["Threshold is disabled"])
 	end
-	logexit("UpdateConfirmationDetailsLine")
 end
 
---[[
-function PurchaseConfirmation:ProduceThresholdTooltipFixed(tThreshold, monAmount)
-	if tThreshold.bEnabled then
+
+-- Empty coffers threshold is a % of the players total credit
+function PurchaseConfirmation:GetEmptyCoffersThreshold(tSettings, tCurrency)
+	local monCurrentPlayerCash = GameLib.GetPlayerCurrency(tCurrency.eType):GetAmount()
+	local threshold = math.floor(monCurrentPlayerCash * (tSettings.tEmptyCoffers.nPercent/100))
+	log:debug("GetEmptyCoffersThreshold: Empty coffers threshold calculated for " .. tCurrency.strName .. ": " .. tostring(tSettings.tEmptyCoffers.nPercent) .. "% of " .. tostring(monCurrentPlayerCash) .. " = " .. tostring(threshold))	
+	return threshold
 end
-]]
 
--- Called when a purchase is confirmed, either because the "Confirm" was pressed on dialog
--- or because the purchase did not breach any thresholds (and was not puny)
-function PurchaseConfirmation:ConfirmPurchase(tItemData)
-	logenter("ConfirmPurchase")
-
-	-- CheckPurchase is called both by Vendor and PurchaseConfirmation. 
-	-- Get reference to PurchaseConfirmation addon to use in the Vendor-initialized callstacks.
-	local addon = Apollo.GetAddon(ADDON_NAME)
+-- Checks if a given threshold is enabled & breached
+function PurchaseConfirmation:IsThresholdBreached(tThreshold, monPrice)
+	-- Is threshold enabled?
+	if not tThreshold.bEnabled then
+		log:debug("IsThresholdBreached: Threshold type " .. tThreshold.strType .. " disabled, skipping price check")
+		return false
+	end
 	
-	local monPrice = addon:GetItemPrice(tItemData)
+	-- Is threshold available?
+	if not tThreshold.monThreshold or tThreshold.monThreshold < 0 then
+		log:debug("IsThresholdBreached: Threshold type " .. tThreshold.strType .. " has no active amount, skipping price check")
+		return false
+	end
+	
+	-- Is threshold breached?
+	if monPrice > tThreshold.monThreshold then
+		log:info("IsThresholdBreached: " .. tThreshold.strType .. " threshold, unsafe amount (amount>=threshold): " .. monPrice  .. ">=" .. tThreshold.monThreshold)
+		return true
+	else
+		-- safe amount
+		log:debug("IsThresholdBreached: " .. tThreshold.strType .. " threshold, safe amount (amount<threshold): " .. monPrice  .. "<" .. tThreshold.monThreshold)
+		return false
+	end
+end
 
-	-- Get currency settings
-	local tCurrency = addon:GetSupportedCurrencyByEnum(tItemData.tPriceInfo.eCurrencyType1)	
-	local tSettings = addon.tSettings[tCurrency.strName]
-		
-	-- Add element to end of list
+function PurchaseConfirmation:UpdateAveragePriceHistory(tSettings, monPrice)
+	-- Add element to end of price history list
 	if tSettings.tAverage.seqPriceHistory == nil then tSettings.tAverage.seqPriceHistory = {} end
 	table.insert(tSettings.tAverage.seqPriceHistory, monPrice)
 	
@@ -484,21 +337,19 @@ function PurchaseConfirmation:ConfirmPurchase(tItemData)
 	
 	-- Update the average threshold
 	local oldAverage = tSettings.tAverage.monThreshold
-	local newAverage = addon:CalculateAverage(tSettings.tAverage.seqPriceHistory)
+	local newAverage = self:CalculateAverage(tSettings.tAverage.seqPriceHistory)
 	
 	-- Update the current tAverage.monThreshold, so it is ready for next purchase-test
 	newAverage = newAverage * (1+(tSettings.tAverage.nPercent/100)) -- add x% to threshold
 	tSettings.tAverage.monThreshold = math.floor(newAverage) -- round off
-	
-	loginfo("ConfirmPurchase", "Updated Average threshold from " .. tostring(oldAverage) .. " to " .. tostring(tSettings.tAverage.monThreshold))
-	
-	addon:DelegateToVendor(tItemData)
-	logenter("ConfirmPurchase")
+
+	log:info("UpdateAveragePriceHistory: Updated Average threshold from " .. tostring(oldAverage) .. " to " .. tostring(tSettings.tAverage.monThreshold))
 end
 
--- Iterates over all sequence elements, calcs the average
+
+--- Iterates over all sequence elements, calcs the average value
+-- @param seqPriceHistory Sequence of numbers (amounts)
 function PurchaseConfirmation:CalculateAverage(seqPriceHistory)
-	logenter("CalculateAverage")
 	local total = 0
 	
 	if #seqPriceHistory <= 0 then
@@ -510,55 +361,11 @@ function PurchaseConfirmation:CalculateAverage(seqPriceHistory)
 	end
 	
 	local avg = math.floor(total / #seqPriceHistory)
-	logdebug("CalculateAverage", "Average=" .. avg)
-	
-	logexit("CalculateAverage")
-	
+	log:debug("CalculateAverage: Average=" .. avg)
+		
 	return avg
 end
 
--- Called whenver a transaction is approved. Calls the real Vendor:OnBuy.
-function PurchaseConfirmation:DelegateToVendor(tItemData)
-	logenter("DelegateToVendor")
-	
-	logdebug("DelegateToVendor", "debugMode=" .. tostring(DEBUG_MODE))
-	if DEBUG_MODE == true then
-		Print("PurchaseConfirmation: purchase ignored!")
-		return
-	end
-	
-	-- Original vendor function stored on PurchaseConfirmation self
-	Apollo.GetAddon(ADDON_NAME).vendorFinalizeBuy(Apollo.GetAddon(VENDOR_ADDON_NAME), tItemData)
-	logexit("DelegateToVendor")
-end
-
-
------------------------------------------------------------------------------------------------
--- ConfirmPurchaseDialogForm button click functions
------------------------------------------------------------------------------------------------
-
--- when the Purchase button is clicked
-function PurchaseConfirmation:OnConfirmPurchase()
-	logenter("OnConfirmPurchase")
-	
-	-- Hide dialog and register confirmed purchase
-	self.wndConfirmDialog:Show(false, true)
-	Apollo.GetAddon(VENDOR_ADDON_NAME).wndVendor:Enable(true)
-	
-	-- Extract item being purchased, and delegate to Vendor
-	local tItemData = self.wndConfirmDialog:GetData()
-	self:ConfirmPurchase(tItemData)
-
-	logexit("OnConfirmPurchase")
-end
-
--- when the Cancel button is clicked
-function PurchaseConfirmation:OnCancelPurchase()
-	logenter("OnCancelPurchase")
-	self.wndConfirmDialog:Show(false, true)
-	Apollo.GetAddon(VENDOR_ADDON_NAME).wndVendor:Enable(true)
-	logexit("OnCancelPurchase")
-end
 
 -- Locates the supported currency config by its ID (rather than its name). Returns nil if not supported.
 function PurchaseConfirmation:GetSupportedCurrencyByEnum(eType)
@@ -568,45 +375,71 @@ function PurchaseConfirmation:GetSupportedCurrencyByEnum(eType)
 	return nil
 end
 
--- When checking the details button, show the details panel
-function PurchaseConfirmation:OnDetailsButtonCheck( wndHandler, wndControl, eMouseButton )
-	logenter("OnDetailsButtonCheck")
-	
-	-- Resize the main window frame so that it is possible to drag it around via the hidden details section
-	local left, top, right, bottom = self.wndConfirmDialog:GetAnchorOffsets()
-	logdebug("OnDetailsButtonCheck", "left="..left..", top="..top..", right="..right..", bottom="..bottom)
-	bottom = bottom + DETAIL_WINDOW_HEIGHT
-	self.wndConfirmDialog:SetAnchorOffsets(left, top, right, bottom)
 
-	local details = self.wndConfirmDialog:FindChild("DetailsArea")
-	details:Show(true, true)
-	logexit("OnDetailsButtonCheck")
+
+---------------------------------------------------------------------------------------------------
+-- Purchase confirmation dialog confirm/cancel button responses
+---------------------------------------------------------------------------------------------------
+
+-- when the Purchase button is clicked
+function PurchaseConfirmation:OnConfirmPurchase()	
+	-- Hide dialog and register confirmed purchase
+	self.wndDialog:Show(false, true)
+	
+	-- Extract item being purchased, and delegate to Vendor
+	local tPurchaseData = self.wndDialog:GetData()
+	local tSettings = self.tSettings[tPurchaseData.tCurrency.strName]
+	
+	-- Purchase is confirmed, update history and complete against backend module
+	self:UpdateAveragePriceHistory(tSettings, tPurchaseData.monPrice)
+	self:CompletePurchase(tPurchaseData.tCallbackData)
 end
 
--- When checking the details button, hide the details panel
+-- when the Cancel button is clicked
+function PurchaseConfirmation:OnCancelPurchase()
+	self.wndDialog:Show(false, true)
+end
+
+
+---------------------------------------------------------------------------------------------------
+-- Purchase confirmation dialog details-foldout show/hide/configure button responses
+---------------------------------------------------------------------------------------------------
+
+--- When checking the details button, hide the details panel
 function PurchaseConfirmation:OnDetailsButtonUncheck( wndHandler, wndControl, eMouseButton )
-	logenter("OnDetailsButtonUncheck")
-
 	-- Resize the main window frame so that it is not possible to drag it around via the hidden details section
-	local left, top, right, bottom = self.wndConfirmDialog:GetAnchorOffsets()
-	logdebug("OnDetailsButtonUncheck", "left="..left..", top="..top..", right="..right..", bottom="..bottom)
-	bottom = bottom - DETAIL_WINDOW_HEIGHT
-	self.wndConfirmDialog:SetAnchorOffsets(left, top, right, bottom)
+	local left, top, right, bottom = self.wndDialog:GetAnchorOffsets()
+	bottom = bottom - FOLDOUT_HEIGHT
+	self.wndDialog:SetAnchorOffsets(left, top, right, bottom)
 	
-	local details = self.wndConfirmDialog:FindChild("DetailsArea")
-	details:Show(false, true)
-	logexit("OnDetailsButtonUncheck")
+	local foldout = self.wndDialog:FindChild("FoldoutArea")
+	foldout:Show(false, true)
 end
 
--- Clicking the detail-panel configure button opens the config
+--- When checking the details button, show the details panel
+function PurchaseConfirmation:OnDetailsButtonCheck( wndHandler, wndControl, eMouseButton )
+	-- Resize the main window frame so that it is possible to drag it around via the hidden details section
+	local left, top, right, bottom = self.wndDialog:GetAnchorOffsets()
+	bottom = bottom + FOLDOUT_HEIGHT
+	self.wndDialog:SetAnchorOffsets(left, top, right, bottom)
+
+	local foldout = self.wndDialog:FindChild("FoldoutArea")
+	foldout:Show(true, true)
+end
+
+--- Clicking the detail-panel configure button opens the config
 function PurchaseConfirmation:OnDetailsOpenSettings()
 	-- TODO: pre-select current currency in settings window
 	self:OnConfigure()
 end
 
+function PurchaseConfirmation:OnConfigure()
+	self.modules["PurchaseConfirmation:Settings"]:OnConfigure()
+end
+
 
 ---------------------------------------------------------------------------------------------------
--- Settings save/restore hooks
+-- Addon Settings save/restore hooks
 ---------------------------------------------------------------------------------------------------
 
 -- Save addon config per character. Called by engine when performing a controlled game shutdown.
@@ -624,62 +457,12 @@ end
 
 -- Restore addon config per character. Called by engine when loading UI.
 function PurchaseConfirmation:OnRestore(eType, tSavedData)
-	logenter("OnRestore")
-	
 	if eType ~= GameLib.CodeEnumAddonSaveLevel.Character then 
 		return 
 	end
 	
-	--[[
-		Perform field-by-field extraction of saved data
-		Doing a simple assign of tSettings=tSavedData would cause errors when loading
-		settings from previous addon-versions.	
-	]]
-	self.tSettings = self:RestoreSettings(tSavedData)
-
-	logexit("OnRestore")
-end
-
------------------------------------------------------------------------------------------------
--- Convenience wrappers of the GeminiLogging methods
------------------------------------------------------------------------------------------------
-function composemessage(strFuncname, strMessage)
-	if strFuncname == nil then
-		strFuncname = "nil"
-	end
-	
-	if strMessage == nil then
-		strMessage = "nil"
-	end
-	
-	return strFuncname .. ": " .. strMessage
-end
-
-function logdebug(strFuncname, strMessage)
-	log:debug(composemessage(strFuncname, strMessage))
-end
-
-function loginfo(strFuncname, strMessage)
-	log:info(composemessage(strFuncname, strMessage))
-end
-
-function logwarn(strFuncname, strMessage)
-	log:warn(composemessage(strFuncname, strMessage))
-end
-
-function logerror(strFuncname, strMessage)
-	log:error(composemessage(strFuncname, strMessage))
-end
-
--- Enter and exit method debug traces. Figure out if some Lua-style AOP is possible instead...
-function logenter(strFuncname)
-	logdebug(strFuncname, "Enter method")
-end
-
--- logexit is only used during "regular" fuction exits, 
--- not null-guard exits and similar. In those cases, look for warn logs instead.
-function logexit(strFuncname)
-	logdebug(strFuncname, "Exit method")
+	-- Store saved settings self for Settings-controlled load during main addon init
+	self.tSavedSettings = tSavedData
 end
 
 -----------------------------------------------------------------------------------------------
