@@ -21,7 +21,7 @@ require "Item"
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
 local DEBUG_MODE = false 
-local LOG_LEVEL = "ERROR"
+local LOG_LEVEL = "INFO"
 
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
@@ -464,6 +464,7 @@ function PurchaseConfirmation:OnRestore(eType, tSavedData)
 	-- Store saved settings self for Settings-controlled load during main addon init
 	self.tSavedSettings = tSavedData
 end
+
 
 -----------------------------------------------------------------------------------------------
 -- PurchaseConfirmation Instance

@@ -6,10 +6,16 @@ require "Window"
 	specifically for the regular "purchase item" functionality.
 ]]
 
+-- GeminiLocale
+local locale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
+
 -- Register module as package
-local VendorRepair = {}
-local MODULE_NAME = "PurchaseConfirmation:VendorRepair"
-Apollo.RegisterPackage(VendorRepair, MODULE_NAME, 1, {"PurchaseConfirmation", "Vendor"})
+local VendorRepair = {
+	MODULE_NAME = "PurchaseConfirmation:VendorRepair",
+	strTitle = locale["Module_VendorRepair_Title"],
+	strDescription = locale["Module_VendorRepair_Description"],
+}
+Apollo.RegisterPackage(VendorRepair, VendorRepair.MODULE_NAME, 1, {"PurchaseConfirmation", "Vendor"})
 
 -- "glocals" set during Init
 local addon, module, vendor, log

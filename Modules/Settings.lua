@@ -6,9 +6,10 @@ require "Window"
 ]]
 
 -- Register module as package
-local Settings = {}
-local MODULE_NAME = "PurchaseConfirmation:Settings"
-Apollo.RegisterPackage(Settings, MODULE_NAME, 1, {"PurchaseConfirmation"})
+local Settings = {
+	MODULE_NAME = "PurchaseConfirmation:Settings"
+}
+Apollo.RegisterPackage(Settings, Settings.MODULE_NAME, 1, {"PurchaseConfirmation"})
 
 -- "glocals" set during Init
 local log
@@ -50,7 +51,7 @@ function Settings:OnDocLoaded()
 	self.wndSettings = Apollo.LoadForm(self.xmlDoc, "SettingsForm", nil, self)
 	if self.wndSettings == nil then
 		Apollo.AddAddonErrorText(self, "Could not load the SettingsForm window")
-		log:error("Settings.OnDocLoaded: wndSettings is nil!")
+		log:error("OnDocLoaded: Error loading main Settings form.")
 		return
 	end	
 	self.wndSettings:Show(false, true)
@@ -70,7 +71,7 @@ function Settings:OnDocLoaded()
 
 		if tCurrency.wndPanel == nil then
 			Apollo.AddAddonErrorText(self, "Could not load the CurrencyPanelForm window")
-			log:error("OnDocLoaded: wndPanel is nil!")
+			log:error("OnDocLoaded: Error loading Settings currency-panel form.")
 			return
 		end
 		
@@ -87,6 +88,32 @@ function Settings:OnDocLoaded()
 		tCurrency.wndPanel:FindChild("FixedSection"):FindChild("Amount"):SetMoneySystem(tCurrency.eType)
 		tCurrency.wndPanel:FindChild("PunySection"):FindChild("Amount"):SetMoneySystem(tCurrency.eType)
 		log:debug("OnDocLoaded: Created currency panel for '" .. tostring(tCurrency.strName) .. "' (" .. tostring(tCurrency.eType) .. ")")
+	end
+	
+	-- Load Modules and Line form
+	self.wndModules = Apollo.LoadForm(self.xmlDoc, "ModulesForm", nil, self)
+	if self.wndSettings == nil then
+		Apollo.AddAddonErrorText(self, "Could not load the ModulesForm window")
+		log:error("Error loading Settings Module form")
+		return
+	end	
+	self.wndModules:Show(false, true)
+	
+	-- Add module desc for each available module. All will have been LOADED, 
+	-- but the hook itself may be enabled/disabled.
+	for _,m in pairs(addon.modules) do
+		if m.MODULE_NAME ~= self.MODULE_NAME then -- Don't allow disabling on the main Settings addon. "I'm special!"
+			log:info("Loading for module " .. m.MODULE_NAME)
+			local wnd = Apollo.LoadForm(self.xmlDoc, "ModulesLineForm", self.wndModules:FindChild("ModuleListArea"), self)
+			if wnd == nil then
+				Apollo.AddAddonErrorText(self, "Could not load the ModulesFormLine window")
+				log:error("Error loading Settings Module-line form")
+				return
+			end
+			wnd:FindChild("EnableButtonLabel"):SetText("Enable module \"" .. m.strTitle .. "\"")
+			wnd:FindChild("Description"):SetText(m.strDescription)
+
+		end
 	end
 
 	self.xmlDoc = nil
@@ -302,12 +329,14 @@ function Settings:OnCancelSettings()
 	-- Hide settings window, without saving any entered values. 
 	-- Settings GUI will revert to old values on next OnConfigure
 	self.wndSettings:Show(false, true)	
+	self.wndModules:Show(false, true)
 end
 
 -- Extracts settings fields one by one, and updates tSettings accordingly.
 function Settings:OnAcceptSettings()
 	-- Hide settings window
 	self.wndSettings:Show(false, true)
+	self.wndModules:Show(false, true)
 	
 	-- For all currencies, extract UI values into settings
 	for _,v in ipairs(addon.seqCurrencies) do
@@ -453,4 +482,13 @@ function Settings:OnCurrencySelection(wndHandler, wndControl)
 	end	
 	self:UpdateBalance()
 end
+
+--- 
+function Settings:OnShowModules(wndHandler, wndControl, eMouseButton)
+-- TODO: position to the right of settings wnd
+	self.wndModules:FindChild("ModuleListArea"):ArrangeChildrenVert()
+	self.wndModules:Show(not self.wndModules:IsVisible(), true)
+	self.wndModules:ToFront()
+end
+
 
