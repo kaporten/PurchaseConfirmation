@@ -20,14 +20,14 @@ require "Item"
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
-local DEBUG_MODE = false 
-local LOG_LEVEL = "INFO"
+local DEBUG_MODE = true 
+local LOG_LEVEL = "DEBUG"
+
 
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
 local ADDON_VERSION = {2, 1, 0} -- major, minor, bugfix
 
-	
 -- Addon object itself
 local PurchaseConfirmation = {} 
 
@@ -40,12 +40,6 @@ local locale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("Purcha
 -- Height of the details-foldout
 local FOLDOUT_HEIGHT = 100
 
--- Names of modules to load during initialization
-local moduleNames = {
-	"PurchaseConfirmation:Settings",
-	"PurchaseConfirmation:VendorPurchase",
-	"PurchaseConfirmation:VendorRepair",
-}
 
 
 -- Standard object instance creation
@@ -95,7 +89,13 @@ function PurchaseConfirmation:OnLoad()
 		{eType = Money.CodeEnumCurrencyType.CraftingVouchers,	strName = "CraftingVouchers",	strDescription = Apollo.GetString("CRB_Crafting_Voucher_Desc")},
 		{eType = Money.CodeEnumCurrencyType.ElderGems,			strName = "ElderGems",			strDescription = Apollo.GetString("CRB_Elder_Gems_Desc")},
 	}
-		
+	
+	-- Names of modules to load during initialization
+	self.moduleNames = {		
+		"PurchaseConfirmation:VendorPurchase",
+		"PurchaseConfirmation:VendorRepair",
+	}
+			
 	-- Load the XML file and await callback
 	self.xmlDoc = XmlDoc.CreateFromFile("PurchaseConfirmation.xml")
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)	
@@ -125,22 +125,29 @@ function PurchaseConfirmation:OnDocLoaded()
 			
 	-- Now that forms are loaded, remove XML doc for gc
 	self.xmlDoc = nil
-		
-	-- Load modules
+
+	--[[
+		Settings vs regular module load-order is important...
+		Regular modules are loaded before settings, and cannot depend on settings during load.
+		Conversely, the Settings module rely on modules being fully loaded, before being loaded itself.
+	]]
+				
+	-- Load real modules.
 	self.modules = {}
-	for k,v in ipairs(moduleNames) do
+	for _,v in pairs(self.moduleNames) do
 		self.modules[v] = Apollo.GetPackage(v).tPackage:new():Init()
 	end
-
+	
+	-- Load Settings like it is  a module, even though it is not treated as a module from here-on out
+	-- Settings is also not found in modules or moduleNames.
+	self.settingsModule = Apollo.GetPackage("PurchaseConfirmation:Settings").tPackage:new():Init()
+	
 	-- Now that the Settings module is loaded, use it to restore previously saved settings
-	if self.tSavedSettings == nil then
-		log:info("No saved settings, using default")	
-		self.tSettings = self.modules["PurchaseConfirmation:Settings"]:DefaultSettings()
-	else
-		log:info("Restoring saved settings")
-		self.tSettings = self.modules["PurchaseConfirmation:Settings"]:RestoreSettings(self.tSavedSettings)
-		self.tSavedData = nil
-	end	
+	self.tSettings = self.settingsModule:RestoreSettings(self.tSavedSettings)
+	self.tSavedData = nil
+	
+	-- Activate modules, as specified in Settings
+	self:UpdateModuleStatus()
 		
 	-- If running debug-mode, warn user (should never make it into production)
 	if DEBUG_MODE == true then
@@ -163,13 +170,13 @@ function PurchaseConfirmation:PriceCheck(tPurchaseData)
 	log:debug("PriceCheck: enter method")
 	
 	-- Get local ref to currency-specific threshold settings
-	local tSettings = self.tSettings[tPurchaseData.tCurrency.strName]
+	local tCurrencySettings = self.tSettings.Currencies[tPurchaseData.tCurrency.strName]
 	local tCurrency = tPurchaseData.tCurrency
-	local monPrice = tPurchaseData.monPrice
+	local monPrice = tPurchaseData.monPrice	
 	
 	-- Check if price is below puny limit
-	if tSettings.tPuny.bEnabled then
-		local monPunyLimit = tSettings.tPuny.monThreshold
+	if tCurrencySettings.tPuny.bEnabled then
+		local monPunyLimit = tCurrencySettings.tPuny.monThreshold
 		if monPunyLimit and monPrice < monPunyLimit then
 			-- Price is below puny-limit, complete purchase (without adding price to history etc)
 			log:info("Vendor.FinalizeBuy: Puny amount " .. monPrice .. " ignored")
@@ -181,18 +188,18 @@ function PurchaseConfirmation:PriceCheck(tPurchaseData)
 	-- Sequence of thresholds to check
 	local tThresholds = {
 		fixed = { -- Fixed threshold config
-			monThreshold = tSettings.tFixed.monThreshold,
-			bEnabled = tSettings.tFixed.bEnabled,
+			monThreshold = tCurrencySettings.tFixed.monThreshold,
+			bEnabled = tCurrencySettings.tFixed.bEnabled,
 			strType = "Fixed"
 		},
 		average = { -- Average threshold config
-			monThreshold = tSettings.tAverage.monThreshold,
-			bEnabled = tSettings.tAverage.bEnabled,
+			monThreshold = tCurrencySettings.tAverage.monThreshold,
+			bEnabled = tCurrencySettings.tAverage.bEnabled,
 			strType = "Average"
 		},
 		emptyCoffers = { -- Empty Coffers threshold config
-			monThreshold = self:GetEmptyCoffersThreshold(tSettings, tCurrency),
-			bEnabled = tSettings.tEmptyCoffers.bEnabled,
+			monThreshold = self:GetEmptyCoffersThreshold(tCurrencySettings, tCurrency),
+			bEnabled = tCurrencySettings.tEmptyCoffers.bEnabled,
 			strType = "EmptyCoffers"
 		},
 	}
@@ -215,7 +222,7 @@ function PurchaseConfirmation:PriceCheck(tPurchaseData)
 	end
 	
 	-- No thresholds breached, just update price history and complete purchase
-	self:UpdateAveragePriceHistory(tSettings, monPrice)
+	self:UpdateAveragePriceHistory(tCurrencySettings, monPrice)
 	self:CompletePurchase(tPurchaseData.tCallbackData)
 end
 
@@ -293,10 +300,10 @@ end
 
 
 -- Empty coffers threshold is a % of the players total credit
-function PurchaseConfirmation:GetEmptyCoffersThreshold(tSettings, tCurrency)
+function PurchaseConfirmation:GetEmptyCoffersThreshold(tCurrencySettings, tCurrency)
 	local monCurrentPlayerCash = GameLib.GetPlayerCurrency(tCurrency.eType):GetAmount()
-	local threshold = math.floor(monCurrentPlayerCash * (tSettings.tEmptyCoffers.nPercent/100))
-	log:debug("GetEmptyCoffersThreshold: Empty coffers threshold calculated for " .. tCurrency.strName .. ": " .. tostring(tSettings.tEmptyCoffers.nPercent) .. "% of " .. tostring(monCurrentPlayerCash) .. " = " .. tostring(threshold))	
+	local threshold = math.floor(monCurrentPlayerCash * (tCurrencySettings.tEmptyCoffers.nPercent/100))
+	log:debug("GetEmptyCoffersThreshold: Empty coffers threshold calculated for " .. tCurrency.strName .. ": " .. tostring(tCurrencySettings.tEmptyCoffers.nPercent) .. "% of " .. tostring(monCurrentPlayerCash) .. " = " .. tostring(threshold))	
 	return threshold
 end
 
@@ -325,25 +332,25 @@ function PurchaseConfirmation:IsThresholdBreached(tThreshold, monPrice)
 	end
 end
 
-function PurchaseConfirmation:UpdateAveragePriceHistory(tSettings, monPrice)
+function PurchaseConfirmation:UpdateAveragePriceHistory(tCurrencySettings, monPrice)
 	-- Add element to end of price history list
-	if tSettings.tAverage.seqPriceHistory == nil then tSettings.tAverage.seqPriceHistory = {} end
-	table.insert(tSettings.tAverage.seqPriceHistory, monPrice)
+	if tCurrencySettings.tAverage.seqPriceHistory == nil then tCurrencySettings.tAverage.seqPriceHistory = {} end
+	table.insert(tCurrencySettings.tAverage.seqPriceHistory, monPrice)
 	
 	-- Remove oldest element(s, in case of history size reduction) from start of list if size is overgrown
-	while #tSettings.tAverage.seqPriceHistory>tSettings.tAverage.nHistorySize do
-		table.remove(tSettings.tAverage.seqPriceHistory, 1)
+	while #tCurrencySettings.tAverage.seqPriceHistory>tCurrencySettings.tAverage.nHistorySize do
+		table.remove(tCurrencySettings.tAverage.seqPriceHistory, 1)
 	end
 	
 	-- Update the average threshold
-	local oldAverage = tSettings.tAverage.monThreshold
-	local newAverage = self:CalculateAverage(tSettings.tAverage.seqPriceHistory)
+	local oldAverage = tCurrencySettings.tAverage.monThreshold
+	local newAverage = self:CalculateAverage(tCurrencySettings.tAverage.seqPriceHistory)
 	
 	-- Update the current tAverage.monThreshold, so it is ready for next purchase-test
-	newAverage = newAverage * (1+(tSettings.tAverage.nPercent/100)) -- add x% to threshold
-	tSettings.tAverage.monThreshold = math.floor(newAverage) -- round off
+	newAverage = newAverage * (1+(tCurrencySettings.tAverage.nPercent/100)) -- add x% to threshold
+	tCurrencySettings.tAverage.monThreshold = math.floor(newAverage) -- round off
 
-	log:info("UpdateAveragePriceHistory: Updated Average threshold from " .. tostring(oldAverage) .. " to " .. tostring(tSettings.tAverage.monThreshold))
+	log:info("UpdateAveragePriceHistory: Updated Average threshold from " .. tostring(oldAverage) .. " to " .. tostring(tCurrencySettings.tAverage.monThreshold))
 end
 
 
@@ -356,7 +363,7 @@ function PurchaseConfirmation:CalculateAverage(seqPriceHistory)
 		return 0
 	end
 	
-	for i,v in ipairs(seqPriceHistory) do
+	for _,v in ipairs(seqPriceHistory) do
 		total = total + v
 	end
 	
@@ -376,6 +383,16 @@ function PurchaseConfirmation:GetSupportedCurrencyByEnum(eType)
 end
 
 
+function PurchaseConfirmation:UpdateModuleStatus()
+	for _,module in pairs(self.modules) do
+		if self.tSettings.Modules[module.MODULE_ID].bEnabled == true then
+			module:Activate()
+		else
+			module:Deactivate()
+		end
+	end
+end
+
 
 ---------------------------------------------------------------------------------------------------
 -- Purchase confirmation dialog confirm/cancel button responses
@@ -388,10 +405,10 @@ function PurchaseConfirmation:OnConfirmPurchase()
 	
 	-- Extract item being purchased, and delegate to Vendor
 	local tPurchaseData = self.wndDialog:GetData()
-	local tSettings = self.tSettings[tPurchaseData.tCurrency.strName]
+	local tCurrencySettings = self.tSettings.Currencies[tPurchaseData.tCurrency.strName]
 	
 	-- Purchase is confirmed, update history and complete against backend module
-	self:UpdateAveragePriceHistory(tSettings, tPurchaseData.monPrice)
+	self:UpdateAveragePriceHistory(tCurrencySettings, tPurchaseData.monPrice)
 	self:CompletePurchase(tPurchaseData.tCallbackData)
 end
 
@@ -399,7 +416,6 @@ end
 function PurchaseConfirmation:OnCancelPurchase()
 	self.wndDialog:Show(false, true)
 end
-
 
 ---------------------------------------------------------------------------------------------------
 -- Purchase confirmation dialog details-foldout show/hide/configure button responses
@@ -434,7 +450,7 @@ function PurchaseConfirmation:OnDetailsOpenSettings()
 end
 
 function PurchaseConfirmation:OnConfigure()
-	self.modules["PurchaseConfirmation:Settings"]:OnConfigure()
+	self.settingsModule:OnConfigure()
 end
 
 

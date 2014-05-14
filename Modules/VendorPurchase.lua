@@ -11,11 +11,11 @@ local locale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("Purcha
 
 -- Register module as package
 local VendorPurchase = {
-	MODULE_NAME = "PurchaseConfirmation:VendorPurchase",
+	MODULE_ID = "PurchaseConfirmation:VendorPurchase",
 	strTitle = locale["Module_VendorPurchase_Title"],
 	strDescription = locale["Module_VendorPurchase_Description"],
 }
-Apollo.RegisterPackage(VendorPurchase, VendorPurchase.MODULE_NAME, 1, {"PurchaseConfirmation", "Vendor"})
+Apollo.RegisterPackage(VendorPurchase, VendorPurchase.MODULE_ID, 1, {"PurchaseConfirmation", "Vendor"})
 
 -- "glocals" set during Init
 local addon, module, vendor, log
@@ -49,10 +49,6 @@ function VendorPurchase:Init()
 	module = self -- Current module
 	log = addon.log
 	vendor = Apollo.GetAddon("Vendor") -- real Vendor to hook
-	
-	-- Hook into Vendor
-	self.hook = vendor.FinalizeBuy -- store ref to original function
-	vendor.FinalizeBuy = self.InterceptPurchase -- replace Vendors FinalizeBuy with own interceptor
 		
 	-- Ensures an open confirm dialog is closed when leaving vendor range
 	-- NB: register the event so that it is fired on main addon, not this wrapper
@@ -84,6 +80,29 @@ function VendorPurchase:OnDocLoaded()
 	
 	module.wnd:Show(true, true)	
 	module.xmlDoc = nil
+	
+	log:info("Module " .. module.MODULE_ID .. " fully loaded")
+end
+
+function VendorPurchase:Activate()
+	-- Hook into Vendor (if not already done)
+	if module.hook == nil then
+		log:info("Activating module: " .. module.MODULE_ID)
+		module.hook = vendor.FinalizeBuy -- store ref to original function
+		vendor.FinalizeBuy = module.InterceptPurchase -- replace Vendors FinalizeBuy with own interceptor
+	else
+		log:debug("Module " .. module.MODULE_ID .. " already active, ignoring Activate request")
+	end
+end
+
+function VendorPurchase:Deactivate()
+	if module.hook ~= nil then
+		log:info("Deactivating module: " .. module.MODULE_ID)
+		vendor.FinalizeBuy = module.hook -- restore original function ref
+		module.hook = nil -- clear hook
+	else
+		log:debug("Module " .. module.MODULE_ID .. " not active, ignoring Deactivate request")
+	end
 end
 
 function VendorPurchase:UpdateDialogDetails(monPrice, tCallbackData)	
