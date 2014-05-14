@@ -20,13 +20,13 @@ require "Item"
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
-local DEBUG_MODE = true 
-local LOG_LEVEL = "DEBUG"
+local DEBUG_MODE = false 
+local LOG_LEVEL = "ERROR"
 
 
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = {2, 1, 0} -- major, minor, bugfix
+local ADDON_VERSION = {2, 2, 0} -- major, minor, bugfix
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
@@ -382,7 +382,6 @@ function PurchaseConfirmation:GetSupportedCurrencyByEnum(eType)
 	return nil
 end
 
-
 function PurchaseConfirmation:UpdateModuleStatus()
 	for _,module in pairs(self.modules) do
 		if self.tSettings.Modules[module.MODULE_ID].bEnabled == true then
@@ -392,6 +391,7 @@ function PurchaseConfirmation:UpdateModuleStatus()
 		end
 	end
 end
+
 
 
 ---------------------------------------------------------------------------------------------------

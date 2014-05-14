@@ -33,7 +33,7 @@ function Settings:Init()
 	Apollo.RegisterSlashCommand("purchaseconfirmation", "OnConfigure", self)
 	Apollo.RegisterSlashCommand("purconf", "OnConfigure", self)
 	
-	self.xmlDoc = XmlDoc.CreateFromFile("Modules/Settings.xml")
+	self.xmlDoc = XmlDoc.CreateFromFile("Settings.xml")
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
 	
 	return self
@@ -387,7 +387,13 @@ function Settings:DefaultSettings()
 	
 	tAllSettings.Modules = {}
 	for _,v in pairs(addon.moduleNames) do
-		local tModule = {bEnabled = true}
+		-- HACK: default-disable VendorRepair, until multi-module hook issue is resolved
+		local tModule
+		if v == "PurchaseConfirmation:VendorRepair" then
+			tModule = {bEnabled = true}
+		else
+			tModule = {bEnabled = true}
+		end
 		tAllSettings.Modules[v] = tModule			
 	end
 

@@ -8,10 +8,11 @@
     <Script Name="Locale/enUS.lua"/>
     <Script Name="Locale/deDE.lua"/>
     <Script Name="Locale/frFR.lua"/>
-    <Script Name="Locale/koKR.lua"/>
-    <!-- Modules -->
-    <Script Name="Modules/Settings.lua"/>
-    <Form Name="Modules/Settings.xml"/>
+    <Script Name="Locale/koKR.lua"/>    
+	<!-- Settings -->
+    <Script Name="Settings.lua"/>
+    <Form Name="Settings.xml"/>
+	<!-- Modules -->
     <Script Name="Modules/VendorPurchase.lua"/>
     <Form Name="Modules/VendorPurchase.xml"/>
     <Script Name="Modules/VendorRepair.lua"/>
