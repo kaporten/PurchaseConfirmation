@@ -387,13 +387,7 @@ function Settings:DefaultSettings()
 	
 	tAllSettings.Modules = {}
 	for _,v in pairs(addon.moduleNames) do
-		-- HACK: default-disable VendorRepair, until multi-module hook issue is resolved
-		local tModule
-		if v == "PurchaseConfirmation:VendorRepair" then
-			tModule = {bEnabled = false}
-		else
-			tModule = {bEnabled = true}
-		end
+		local tModule = {bEnabled = true}
 		tAllSettings.Modules[v] = tModule			
 	end
 
