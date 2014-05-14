@@ -41,3 +41,12 @@ L["Settings_Threshold_Average_Description"] = "Request confirmation if purchase 
 
 L["Settings_Threshold_EmptyCoffers_Enable"] = "Enable \"empty coffers\" threshold [1-100%]:"
 L["Settings_Threshold_EmptyCoffers_Description"] = "Request confirmation if purchase cost more than the specified percentage of your current balance."
+
+
+	--[[ MODULES ]]
+	
+L["Module_VendorPurchase_Title"] = "Vendor: Purchase"
+L["Module_VendorPurchase_Description"] = "This module intercepts item purchases in the main Vendor-addon. This covers all the regular vendors, such as General Goods vendors, scattered throughout Nexus."
+
+L["Module_VendorRepair_Title"] = "Vendor: Repair"
+L["Module_VendorRepair_Description"] = "This module intercepts single- and all-item repairs performed in the main Vendor-addon. It does not request confirmation for auto-repairs initiated by addon 'JunkIt'."

@@ -6,9 +6,10 @@ require "Window"
 ]]
 
 -- Register module as package
-local Settings = {}
-local MODULE_NAME = "PurchaseConfirmation:Settings"
-Apollo.RegisterPackage(Settings, MODULE_NAME, 1, {"PurchaseConfirmation"})
+local Settings = {
+	MODULE_ID = "PurchaseConfirmation:Settings"
+}
+Apollo.RegisterPackage(Settings, Settings.MODULE_ID, 1, {"PurchaseConfirmation"})
 
 -- "glocals" set during Init
 local log
@@ -26,12 +27,13 @@ end
 function Settings:Init()
 	addon = Apollo.GetAddon("PurchaseConfirmation") -- main addon, calling the shots
 	log = addon.log
+	module = self
 			
 	-- Slash commands to manually open the settings window
 	Apollo.RegisterSlashCommand("purchaseconfirmation", "OnConfigure", self)
 	Apollo.RegisterSlashCommand("purconf", "OnConfigure", self)
 	
-	self.xmlDoc = XmlDoc.CreateFromFile("Modules/Settings.xml")
+	self.xmlDoc = XmlDoc.CreateFromFile("Settings.xml")
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
 	
 	return self
@@ -50,7 +52,7 @@ function Settings:OnDocLoaded()
 	self.wndSettings = Apollo.LoadForm(self.xmlDoc, "SettingsForm", nil, self)
 	if self.wndSettings == nil then
 		Apollo.AddAddonErrorText(self, "Could not load the SettingsForm window")
-		log:error("Settings.OnDocLoaded: wndSettings is nil!")
+		log:error("OnDocLoaded: Error loading main Settings form.")
 		return
 	end	
 	self.wndSettings:Show(false, true)
@@ -70,7 +72,7 @@ function Settings:OnDocLoaded()
 
 		if tCurrency.wndPanel == nil then
 			Apollo.AddAddonErrorText(self, "Could not load the CurrencyPanelForm window")
-			log:error("OnDocLoaded: wndPanel is nil!")
+			log:error("OnDocLoaded: Error loading Settings currency-panel form.")
 			return
 		end
 		
@@ -87,6 +89,29 @@ function Settings:OnDocLoaded()
 		tCurrency.wndPanel:FindChild("FixedSection"):FindChild("Amount"):SetMoneySystem(tCurrency.eType)
 		tCurrency.wndPanel:FindChild("PunySection"):FindChild("Amount"):SetMoneySystem(tCurrency.eType)
 		log:debug("OnDocLoaded: Created currency panel for '" .. tostring(tCurrency.strName) .. "' (" .. tostring(tCurrency.eType) .. ")")
+	end
+	
+	-- Load Modules and Line form
+	self.wndModules = Apollo.LoadForm(self.xmlDoc, "ModulesForm", nil, self)
+	if self.wndSettings == nil then
+		Apollo.AddAddonErrorText(self, "Could not load the ModulesForm window")
+		log:error("Error loading Settings Module form")
+		return
+	end	
+	self.wndModules:Show(false, true)
+	
+	-- Add module desc for each available module. 
+	for _,m in pairs(addon.modules) do
+		log:info("Loading form for module " .. m.MODULE_ID)
+		local wnd = Apollo.LoadForm(self.xmlDoc, "ModulesLineForm", self.wndModules:FindChild("ModuleListArea"), self)
+		if wnd == nil then
+			Apollo.AddAddonErrorText(self, "Could not load the ModulesFormLine window")
+			log:error("Error loading Settings Module-line form")
+			return
+		end
+		wnd:FindChild("EnableButtonLabel"):SetText("Enable module \"" .. m.strTitle .. "\"")
+		wnd:FindChild("Description"):SetText(m.strDescription)
+		wnd:SetName(m.MODULE_ID)
 	end
 
 	self.xmlDoc = nil
@@ -125,6 +150,7 @@ function Settings:OnConfigure()
 	-- Update values on GUI with current settings before showing
 	self:PopulateSettingsWindow()
 	self:UpdateBalance()
+	self:PopulateModules()
 
 	self.wndSettings:Show(true, true)
 	self.wndSettings:ToFront()
@@ -135,7 +161,7 @@ function Settings:PopulateSettingsWindow()
 	-- Loop over all supported currencytypes, populate each one with current settings
 	for _,currencyType in ipairs(addon.seqCurrencies) do
 		local wndCurrency = currencyType.wndPanel
-		local tCurrencySettings = addon.tSettings[currencyType.strName]
+		local tCurrencySettings = addon.tSettings.Currencies[currencyType.strName]
 		self:PopulateSettingsWindowForCurrency(wndCurrency, tCurrencySettings)
 	end
 end
@@ -175,6 +201,12 @@ function Settings:PopulateSettingsWindowForCurrency(wndCurrencyControl, tSetting
 	if tSettings.tPuny.monThreshold ~=nil then punySection:FindChild("Amount"):SetAmount(tSettings.tPuny.monThreshold, true) end
 end
 
+function Settings:PopulateModules()
+	for _,m in ipairs(self.wndModules:FindChild("ModuleListArea"):GetChildren()) do
+		m:FindChild("EnableButton"):SetCheck(addon.tSettings.Modules[m:GetName()].bEnabled)
+	end
+end
+
 -- Restores saved settings into the tSettings structure.
 -- Invoked during game load.
 function Settings:RestoreSettings(tSavedData)
@@ -190,17 +222,20 @@ function Settings:RestoreSettings(tSavedData)
 		old settings formats first, in order
 	]]
 	local tSettings = self:DefaultSettings()
-	self:FillSettings_0_7(tSettings, tSavedData) -- ver 0.7 single-currency settings
-	self:FillSettings_0_8(tSettings, tSavedData) -- ver 0.8+ multi-currency settings
+	
+	if tSavedData ~= nil then
+		self:FillSettings_0_7(tSettings, tSavedData) -- ver 0.7 single-currency settings
+		self:FillSettings_0_8(tSettings, tSavedData) -- ver 0.8+ multi-currency settings
+		self:FillSettings_2_3(tSettings, tSavedData) -- ver 2.3+ multi-currency + modules
+	end
 	
 	return tSettings
 end
-
 -- Addonv 0.7 settings; "flat", and only supports Credits.
 function Settings:FillSettings_0_7(tSettings, tSavedData)
 	log:debug("Restoring v0.7-style saved settings")
 	if type(tSavedData) == "table" then -- should be outer settings table
-		local tTarget = tSettings["Credits"]
+		local tTarget = tSettings.Currencies.Credits
 	
 		-- Fixed
 		if type(tSavedData.bFixedThresholdEnabled) == "boolean" then tTarget.tFixed.bEnabled = tSavedData.bFixedThresholdEnabled end
@@ -222,6 +257,7 @@ function Settings:FillSettings_0_7(tSettings, tSavedData)
 	end	
 end
 
+
 -- Addon v0.8 settings; "layered", and supports multiple currencies
 function Settings:FillSettings_0_8(tSettings, tSavedData)
 	log:debug("Restoring v0.8-style saved settings")
@@ -229,7 +265,10 @@ function Settings:FillSettings_0_8(tSettings, tSavedData)
 		for _,v in ipairs(addon.seqCurrencies) do
 			if type(tSavedData[v.strName]) == "table" then -- should be individual currency table table
 				local tSaved = tSavedData[v.strName] -- assumed present in default settings
-				local tTarget = tSettings[v.strName]
+				local tTarget = tSettings.Currencies[v.strName]
+				
+				-- Guess these data were not meant for me...
+				if tSaved == nil or tTarget == nil then return end
 				
 				if type(tSaved.tFixed) == "table" then -- does fixed section exist?
 					if type(tSaved.tFixed.bEnabled) == "boolean" then tTarget.tFixed.bEnabled = tSaved.tFixed.bEnabled end
@@ -252,11 +291,61 @@ function Settings:FillSettings_0_8(tSettings, tSavedData)
 				if type(tSaved.tPuny) == "table" then
 					if type(tSaved.tPuny.bEnabled) == "boolean" then tTarget.tPuny.bEnabled = tSaved.tPuny.bEnabled end
 					if type(tSaved.tPuny.monThreshold) == "number" then tTarget.tPuny.monThreshold = tSaved.tPuny.monThreshold end
-				end				
+				end	
 			end
 		end
 	end
 end
+
+-- Addon v2.3 settings; "layered", and supports multiple currencies
+function Settings:FillSettings_2_3(tSettings, tSavedData)
+	log:debug("Restoring v2.3-style saved settings")
+	if type(tSavedData) == "table" then -- should be outer settings table	
+
+		if type(tSavedData.Currencies) == "table" then
+			for _,v in ipairs(addon.seqCurrencies) do
+				if type(tSavedData.Currencies[v.strName]) == "table" then -- should be individual currency table table
+					local tSaved = tSavedData.Currencies[v.strName] -- assumed present in default settings
+					local tTarget = tSettings.Currencies[v.strName]
+					
+					if type(tSaved.tFixed) == "table" then -- does fixed section exist?
+						if type(tSaved.tFixed.bEnabled) == "boolean" then tTarget.tFixed.bEnabled = tSaved.tFixed.bEnabled end
+						if type(tSaved.tFixed.monThreshold) == "number" then tTarget.tFixed.monThreshold = tSaved.tFixed.monThreshold end
+					end
+					
+					if type(tSaved.tEmptyCoffers) == "table" then
+						if type(tSaved.tEmptyCoffers.bEnabled) == "boolean" then tTarget.tEmptyCoffers.bEnabled = tSaved.tEmptyCoffers.bEnabled end
+						if type(tSaved.tEmptyCoffers.nPercent) == "number" then tTarget.tEmptyCoffers.nPercent = tSaved.tEmptyCoffers.nPercent end
+					end
+					
+					if type(tSaved.tAverage) == "table" then
+						if type(tSaved.tAverage.bEnabled) == "boolean" then tTarget.tAverage.bEnabled = tSaved.tAverage.bEnabled end
+						if type(tSaved.tAverage.monThreshold) == "number" then tTarget.tAverage.monThreshold = tSaved.tAverage.monThreshold end
+						if type(tSaved.tAverage.nPercent) == "number" then tTarget.tAverage.nPercent = tSaved.tAverage.nPercent end
+						if type(tSaved.tAverage.nHistorySize) == "number" then tTarget.tAverage.nHistorySize = tSaved.tAverage.nHistorySize end
+						if type(tSaved.tAverage.seqPriceHistory) == "table" then tTarget.tAverage.seqPriceHistory = tSaved.tAverage.seqPriceHistory end
+					end
+	
+					if type(tSaved.tPuny) == "table" then
+						if type(tSaved.tPuny.bEnabled) == "boolean" then tTarget.tPuny.bEnabled = tSaved.tPuny.bEnabled end
+						if type(tSaved.tPuny.monThreshold) == "number" then tTarget.tPuny.monThreshold = tSaved.tPuny.monThreshold end
+					end				
+				end
+			end
+		end
+		
+		-- Only storing a boolean indicator for module config, so far at least. 
+		if type(tSavedData.Modules) == "table" then
+			for _,moduleName in pairs(addon.moduleNames) do
+				if type(tSavedData.Modules[moduleName]) == "table" then
+					local moduleSettings = tSavedData.Modules[moduleName]
+					if type(moduleSettings.bEnabled) == "boolean" then tSettings.Modules[moduleName].bEnabled = moduleSettings.bEnabled end
+				end
+			end
+		end	
+	end
+end
+
 
 -- Returns a set of current-version default settings for all currency types
 function Settings:DefaultSettings()
@@ -264,11 +353,13 @@ function Settings:DefaultSettings()
 
 	-- Contains individual settings for all currency types
 	local tAllSettings = {}
+	tAllSettings.Currencies = {}
+	tAllSettings.Modules = {}
 
 	-- Initially populate all currency type with "conservative" / generic default values
 	for _,v in ipairs(addon.seqCurrencies) do
 		local t = {}
-		tAllSettings[v.strName] = t
+		tAllSettings.Currencies[v.strName] = t
 		
 		-- Fixed
 		t.tFixed = {}
@@ -293,6 +384,18 @@ function Settings:DefaultSettings()
 		t.tPuny.bEnabled = false		-- Puny threshold disabled
 		t.tPuny.monThreshold = 0 		-- No amount configured
 	end
+	
+	tAllSettings.Modules = {}
+	for _,v in pairs(addon.moduleNames) do
+		-- HACK: default-disable VendorRepair, until multi-module hook issue is resolved
+		local tModule
+		if v == "PurchaseConfirmation:VendorRepair" then
+			tModule = {bEnabled = true}
+		else
+			tModule = {bEnabled = true}
+		end
+		tAllSettings.Modules[v] = tModule			
+	end
 
 	return tAllSettings	
 end
@@ -302,17 +405,60 @@ function Settings:OnCancelSettings()
 	-- Hide settings window, without saving any entered values. 
 	-- Settings GUI will revert to old values on next OnConfigure
 	self.wndSettings:Show(false, true)	
+	self.wndModules:Show(false, true)
 end
 
 -- Extracts settings fields one by one, and updates tSettings accordingly.
 function Settings:OnAcceptSettings()
 	-- Hide settings window
 	self.wndSettings:Show(false, true)
+	self.wndModules:Show(false, true)
 	
 	-- For all currencies, extract UI values into settings
 	for _,v in ipairs(addon.seqCurrencies) do
-		self:AcceptSettingsForCurrency(v.wndPanel, addon.tSettings[v.strName])
+		self:AcceptSettingsForCurrency(v.wndPanel, addon.tSettings.Currencies[v.strName])
 	end
+	
+	-- For all modules, extract UI values into settings
+	for _,v in pairs(addon.modules) do
+		self:AcceptSettingsForModule(v.MODULE_ID)
+	end
+
+	-- Request that main addon update module status according to new settings
+	addon:UpdateModuleStatus()
+end
+
+function Settings:AcceptSettingsForModule(moduleId)
+	
+	--[[ 
+		Been having some issues finding children in the self.wndModules window... 
+		so this is over error-proofed.
+	]]
+		
+	local btn = self.wndModules:FindChild("ModuleListArea")
+	if btn == nil then
+		log:error("Could not find settings for module " .. moduleId .. " (ModuleListArea not found)")
+		return
+	end
+
+	-- for some reason btn:FindChild(moduleId) returns nothing, but manually iterating and identifying works	
+	for _,v in ipairs(btn:GetChildren()) do
+		if v:GetName() == moduleId then
+			btn = v
+			break
+		end
+	end
+	
+	if btn == nil then
+		log:error("Could not find settings for module " .. moduleId .. " (specific module not found)")
+		return
+	end
+	
+	local btn = btn:FindChild("EnableButton")
+	local name = "tModules[" .. moduleId .."].bEnabled"
+	local current = addon.tSettings.Modules[moduleId].bEnabled
+		
+	addon.tSettings.Modules[moduleId].bEnabled = self:ExtractSettingCheckbox(btn, name, current) 
 end
 
 function Settings:AcceptSettingsForCurrency(wndPanel, tSettings)
@@ -453,4 +599,13 @@ function Settings:OnCurrencySelection(wndHandler, wndControl)
 	end	
 	self:UpdateBalance()
 end
+
+--- 
+function Settings:OnShowModules(wndHandler, wndControl, eMouseButton)
+-- TODO: position to the right of settings wnd
+	self.wndModules:FindChild("ModuleListArea"):ArrangeChildrenVert()
+	self.wndModules:Show(not self.wndModules:IsVisible(), true)
+	self.wndModules:ToFront()
+end
+
 
