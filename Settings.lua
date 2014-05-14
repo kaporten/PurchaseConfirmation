@@ -390,7 +390,7 @@ function Settings:DefaultSettings()
 		-- HACK: default-disable VendorRepair, until multi-module hook issue is resolved
 		local tModule
 		if v == "PurchaseConfirmation:VendorRepair" then
-			tModule = {bEnabled = true}
+			tModule = {bEnabled = false}
 		else
 			tModule = {bEnabled = true}
 		end
