@@ -5,6 +5,9 @@ require "Window"
 	Various functions for controlling the settings.
 ]]
 
+-- GeminiLocale
+local locale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
+
 -- Register module as package
 local Settings = {
 	MODULE_ID = "PurchaseConfirmation:Settings"
@@ -109,7 +112,7 @@ function Settings:OnDocLoaded()
 			log:error("Error loading Settings Module-line form")
 			return
 		end
-		wnd:FindChild("EnableButtonLabel"):SetText("Enable module \"" .. m.strTitle .. "\"")
+		wnd:FindChild("EnableButtonLabel"):SetText(locale["Module_Enable"] .. " '" .. m.strTitle .. "'")
 		wnd:FindChild("Description"):SetText(m.strDescription)
 		wnd:SetName(m.MODULE_ID)
 	end

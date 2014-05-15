@@ -45,6 +45,8 @@ L["Settings_Threshold_EmptyCoffers_Description"] = "Request confirmation if purc
 
 	--[[ MODULES ]]
 	
+L["Module_Enable"] = "Enable Module"
+	
 L["Module_VendorPurchase_Title"] = "Vendor: Purchase"
 L["Module_VendorPurchase_Description"] = "This module intercepts item purchases in the main Vendor-addon. This covers all the regular vendors, such as General Goods vendors, scattered throughout Nexus."
 

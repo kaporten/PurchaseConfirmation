@@ -45,6 +45,8 @@ L["Settings_Threshold_EmptyCoffers_Description"] = "Demande confirmation si l'ac
 
 	--[[ MODULES ]]
 	
+L["Module_Enable"] = "Activer Module"
+
 L["Module_VendorPurchase_Title"] = "Vendeur: Acheter"
 L["Module_VendorPurchase_Description"] = "Cet article intercepte module achats dans le principal vendeur-addon. Cela couvre tous les vendeurs réguliers, tels que les fournisseurs Général Marchandises, dispersés à travers Nexus."
 

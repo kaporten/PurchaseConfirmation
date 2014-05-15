@@ -45,6 +45,8 @@ L["Settings_Threshold_EmptyCoffers_Description"] = "Bestätigung anfordern, wenn
 
 	--[[ MODULES ]]
 	
+L["Module_Enable"] = "Aktivieren Modul"
+	
 L["Module_VendorPurchase_Title"] = "Verkäufer: Kauf"
 L["Module_VendorPurchase_Description"] = "Dieses Modul fängt Artikel Einkäufe in der Haupt-Verkäufer-Addon. Dies umfasst alle regulären Hersteller, wie zB allgemeine Ware-Anbieter, während Nexus verstreut."
 
