@@ -1,5 +1,5 @@
 -- Default english localization
-local debug = true
+local debug = false
 local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:NewLocale("PurchaseConfirmation", "enUS", true, not debug)
 
 if not L then

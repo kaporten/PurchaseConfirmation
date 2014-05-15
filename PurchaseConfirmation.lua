@@ -26,7 +26,7 @@ local LOG_LEVEL = "ERROR"
 
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = {2, 2, 1} -- major, minor, bugfix
+local ADDON_VERSION = {2, 2, 2} -- major, minor, bugfix
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
@@ -294,7 +294,7 @@ function PurchaseConfirmation:UpdateConfirmationDetailsLine(wndLine, tThreshold,
 		wndLine:FindChild("Icon"):Show(false)
 		wndLine:FindChild("Label"):SetTextColor("xkcdMediumGrey")
 		wndLine:FindChild("Amount"):SetTextColor("xkcdMediumGrey")
-		wndLine:SetTooltip(locale["Threshold is disabled"])
+		wndLine:SetTooltip(locale["Dialog_DetailsTooltip_Disabled"])
 	end
 end
 
