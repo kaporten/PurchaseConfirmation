@@ -20,7 +20,7 @@ L["Dialog_DetailsLabel_EmptyCoffers"] = "Caisses vides"
 -- Detail window foldout tooltips
 L["Dialog_DetailsTooltip_Breached"] = "Le seuil est viol√©"
 L["Dialog_DetailsTooltip_NotBreached"] = "Seuil n'est pas viol√©"
-L["Dialog_DetailsTooltip_Disabled"] = "Le seuil est dÈsactivÈ"
+L["Dialog_DetailsTooltip_Disabled"] = "Le seuil est d√©sactiv√©"
 
 
 	--[[ SETTINGS WINDOW ]]
@@ -46,7 +46,7 @@ L["Settings_Threshold_EmptyCoffers_Description"] = "Demande confirmation si l'ac
 	--[[ MODULES ]]
 	
 L["Module_VendorPurchase_Title"] = "Vendeur: Acheter"
-L["Module_VendorPurchase_Description"] = "Cet article intercepte module achats dans le principal vendeur-addon. Cela couvre tous les vendeurs rÈguliers, tels que les fournisseurs GÈnÈral Marchandises, dispersÈs ‡ travers Nexus."
+L["Module_VendorPurchase_Description"] = "Cet article intercepte module achats dans le principal vendeur-addon. Cela couvre tous les vendeurs r√©guliers, tels que les fournisseurs G√©n√©ral Marchandises, dispers√©s √† travers Nexus."
 
-L["Module_VendorRepair_Title"] = "Vendeur: RÈparation"
-L["Module_VendorRepair_Description"] = "Ce module intercepte les rÈparations simples et tous postes rÈalisÈes dans le principal vendeur-addon. Il ne demande pas de confirmation pour l'auto-rÈparation initiÈes par addon 'JunkIt."
+L["Module_VendorRepair_Title"] = "Vendeur: R√©paration"
+L["Module_VendorRepair_Description"] = "Ce module intercepte les r√©parations simples et tous postes r√©alis√©es dans le principal vendeur-addon. Il ne demande pas de confirmation pour l'auto-r√©paration initi√©es par addon 'JunkIt."
