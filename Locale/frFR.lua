@@ -41,3 +41,12 @@ L["Settings_Threshold_Average_Description"] = "Demander confirmation si le prix 
 
 L["Settings_Threshold_EmptyCoffers_Enable"] = "Activer \"caisses vides\" seuil [1-100%]:"
 L["Settings_Threshold_EmptyCoffers_Description"] = "Demande confirmation si l'achat a coÃ»tÃ© plus que le pourcentage prÃ©cis de votre solde actuel."
+
+
+	--[[ MODULES ]]
+	
+L["Module_VendorPurchase_Title"] = "Vendeur: Acheter"
+L["Module_VendorPurchase_Description"] = "Cet article intercepte module achats dans le principal vendeur-addon. Cela couvre tous les vendeurs réguliers, tels que les fournisseurs Général Marchandises, dispersés à travers Nexus."
+
+L["Module_VendorRepair_Title"] = "Vendeur: Réparation"
+L["Module_VendorRepair_Description"] = "Ce module intercepte les réparations simples et tous postes réalisées dans le principal vendeur-addon. Il ne demande pas de confirmation pour l'auto-réparation initiées par addon 'JunkIt."

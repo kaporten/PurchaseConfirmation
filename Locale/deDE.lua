@@ -41,3 +41,12 @@ L["Settings_Threshold_Average_Description"] = "Bestätigung anfordern, wenn Kauf
 
 L["Settings_Threshold_EmptyCoffers_Enable"] = "\"Leeren Kassen\" Schwelle aktivieren [1-100%]:"
 L["Settings_Threshold_EmptyCoffers_Description"] = "Bestätigung anfordern, wenn Kauf mehr kosten als der angegebene Prozentsatz von Ihren aktuellen Kontostand."
+
+
+	--[[ MODULES ]]
+	
+L["Module_VendorPurchase_Title"] = "Verkäufer: Kauf"
+L["Module_VendorPurchase_Description"] = "Dieses Modul fängt Artikel Einkäufe in der Haupt-Verkäufer-Addon. Dies umfasst alle regulären Hersteller, wie zB allgemeine Ware-Anbieter, während Nexus verstreut."
+
+L["Module_VendorRepair_Title"] = "Verkäufer: Reparieren"
+L["Module_VendorRepair_Description"] = "Dieses Modul Abschnitte ein-und all-Artikel Reparaturen in der Haupt-Verkäufer-Addon durchgeführt. Es muss nicht fordern Bestätigung für die Auto-Reparaturen durch Addon 'JunkIt' initiiert."

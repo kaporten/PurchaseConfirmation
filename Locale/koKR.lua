@@ -22,6 +22,7 @@ L["Dialog_DetailsTooltip_Breached"] = "임계 값 위반된다"
 L["Dialog_DetailsTooltip_NotBreached"] = "임계 값이 위반되지 않는다"
 L["Dialog_DetailsTooltip_Disabled"] = "임계 값을 사용할 수"
 
+
 	--[[ SETTINGS WINDOW ]]
 
 -- Main window labels
@@ -40,3 +41,12 @@ L["Settings_Threshold_Average_Description"] = "구입 가격이 최근 구매 �
 
 L["Settings_Threshold_EmptyCoffers_Enable"] = "빈 금고 임계 값을 사용 [1-100%]:"
 L["Settings_Threshold_EmptyCoffers_Description"] = "구입은 현재 잔액의 지정된 비율보다 비용이 경우 요청 확인."
+
+
+	--[[ MODULES ]]
+	
+L["Module_VendorPurchase_Title"] = "공급 업체: 매수"
+L["Module_VendorPurchase_Description"] = "주요 벤더 애드온에이 모듈을 차단 항목을 구매. 이 관계에 흩어져 등 일반 제품 공급 업체 등 모든 일반 업체를 다룹니다."
+
+L["Module_VendorRepair_Title"] = "공급 업체: 수리"
+L["Module_VendorRepair_Description"] = "주요 벤더 애드온에서 수행이 모듈을 차단 단일 및 모든 항목을 수리. 이 애드온 'JunkIt'에 의해 시작 자동 수리에 대한 확인을 요청하지 않습니다."
