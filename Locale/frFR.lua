@@ -33,18 +33,22 @@ L["Settings_Balance"] = "Balance courante"
 L["Settings_Threshold_Fixed_Enable"] = "Activer seuil \"supérieure fixe\":"
 L["Settings_Threshold_Fixed_Description"] = "Toujours demander confirmation pour les achats supérieurs à ce montant."
 
-L["Settings_Threshold_Puny_Enable"] = "Activer seuil de \"montant chétif\":"
+L["Settings_Threshold_Puny_Enable"] = "Activer seuil \"montant chétif\":"
 L["Settings_Threshold_Puny_Description"] = "Ne jamais demander confirmation pour les achats inférieurs à ce montant, et de ne pas utiliser l'achat en \"dépenses moyenne\" calcul des seuils."
 
-L["Settings_Threshold_Average_Enable"] = "Activer seuil \"de la dépense moyenne\" [1-100%]:"
+L["Settings_Threshold_Average_Enable"] = "Activer seuil \"dépense moyenne\" [1-100%]:"
 L["Settings_Threshold_Average_Description"] = "Demander confirmation si le prix d'achat est supérieur au pourcentage indiqué ci-dessus de la moyenne de l'histoire de votre achat récent."
 
-L["Settings_Threshold_EmptyCoffers_Enable"] = "Activer \"caisses vides\" seuil [1-100%]:"
+L["Settings_Threshold_EmptyCoffers_Enable"] = "Activer seuil \"caisses vides\" [1-100%]:"
 L["Settings_Threshold_EmptyCoffers_Description"] = "Demande confirmation si l'achat a coûté plus que le pourcentage précis de votre solde actuel."
+
+L["Settings_Modules_Button"] = "Modules!"
 
 
 	--[[ MODULES ]]
-	
+
+L["Modules_WindowTitle"] = "PurchaseConfirmation Modules"
+
 L["Module_Enable"] = "Activer Module"
 
 L["Module_VendorPurchase_Title"] = "Vendeur: Acheter"

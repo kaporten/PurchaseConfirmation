@@ -42,9 +42,13 @@ L["Settings_Threshold_Average_Description"] = "Bestätigung anfordern, wenn Kauf
 L["Settings_Threshold_EmptyCoffers_Enable"] = "\"Leeren Kassen\" Schwelle aktivieren [1-100%]:"
 L["Settings_Threshold_EmptyCoffers_Description"] = "Bestätigung anfordern, wenn Kauf mehr kosten als der angegebene Prozentsatz von Ihren aktuellen Kontostand."
 
+L["Settings_Modules_Button"] = "Module"
+
 
 	--[[ MODULES ]]
-	
+
+L["Modules_WindowTitle"] = "PurchaseConfirmation Module"
+
 L["Module_Enable"] = "Aktivieren Modul"
 	
 L["Module_VendorPurchase_Title"] = "Verkäufer: Kauf"

@@ -96,14 +96,15 @@ function Settings:OnDocLoaded()
 	
 	-- Load Modules and Line form
 	self.wndModules = Apollo.LoadForm(self.xmlDoc, "ModulesForm", nil, self)
-	if self.wndSettings == nil then
+	if self.wndModules == nil then
 		Apollo.AddAddonErrorText(self, "Could not load the ModulesForm window")
 		log:error("Error loading Settings Module form")
 		return
 	end	
+	self:LocalizeModulesWindow(self.wndModules)
 	self.wndModules:Show(false, true)
 	
-	-- Add module desc for each available module. 
+	-- Add module line to module-config window, for each available module. 
 	for _,m in pairs(addon.modules) do
 		log:info("Loading form for module " .. m.MODULE_ID)
 		local wnd = Apollo.LoadForm(self.xmlDoc, "ModulesLineForm", self.wndModules:FindChild("ModuleListArea"), self)
@@ -112,12 +113,21 @@ function Settings:OnDocLoaded()
 			log:error("Error loading Settings Module-line form")
 			return
 		end
-		wnd:FindChild("EnableButtonLabel"):SetText(locale["Module_Enable"] .. " '" .. m.strTitle .. "'")
-		wnd:FindChild("Description"):SetText(m.strDescription)
-		wnd:SetName(m.MODULE_ID)
+		self:LocalizeModuleEntry(wnd, m)
+		wnd:SetData(m.MODULE_ID)
 	end
 
 	self.xmlDoc = nil
+end
+
+function Settings:LocalizeModulesWindow(wnd)
+	wnd:FindChild("WindowTitle"):SetText(locale["Modules_WindowTitle"])
+end
+
+function Settings:LocalizeModuleEntry(wnd, m)
+	-- m.strTitle + m.strDescription are prelocalized during module initialization
+	wnd:FindChild("EnableButtonLabel"):SetText(tostring(locale["Module_Enable"]) .. " '" .. tostring(m.strTitle) .. "'")	
+	wnd:FindChild("Description"):SetText(m.strDescription)
 end
 
 --- Localizes the main Settings window
@@ -206,7 +216,8 @@ end
 
 function Settings:PopulateModules()
 	for _,m in ipairs(self.wndModules:FindChild("ModuleListArea"):GetChildren()) do
-		m:FindChild("EnableButton"):SetCheck(addon.tSettings.Modules[m:GetName()].bEnabled)
+		log:info("Populating module")
+		m:FindChild("EnableButton"):SetCheck(addon.tSettings.Modules[m:GetData()].bEnabled) -- GetData == moduleId
 	end
 end
 
@@ -425,34 +436,18 @@ function Settings:OnAcceptSettings()
 	addon:UpdateModuleStatus()
 end
 
-function Settings:AcceptSettingsForModule(moduleId)
+function Settings:AcceptSettingsForModule(moduleId)	
+	-- The Settings->ModuleLineForm window instance should have had 
+	-- the moduleId set as userdata during load
+	local wnd = self.wndModules:FindChildByUserData(moduleId)
 	
-	--[[ 
-		Been having some issues finding children in the self.wndModules window... 
-		so this is over error-proofed.
-	]]
-		
-	local btn = self.wndModules:FindChild("ModuleListArea")
-	if btn == nil then
-		log:error("Could not find settings for module " .. moduleId .. " (ModuleListArea not found)")
-		return
-	end
-
-	-- for some reason btn:FindChild(moduleId) returns nothing, but manually iterating and identifying works	
-	for _,v in ipairs(btn:GetChildren()) do
-		if v:GetName() == moduleId then
-			btn = v
-			break
-		end
-	end
-	
-	if btn == nil then
+	if wnd == nil then
 		log:error("Could not find settings for module " .. moduleId .. " (specific module not found)")
 		return
 	end
 	
-	local btn = btn:FindChild("EnableButton")
-	local name = "tModules[" .. moduleId .."].bEnabled"
+	local btn = wnd:FindChild("EnableButton")
+	local name = "Modules[" .. moduleId .."].bEnabled"
 	local current = addon.tSettings.Modules[moduleId].bEnabled
 		
 	addon.tSettings.Modules[moduleId].bEnabled = self:ExtractSettingCheckbox(btn, name, current) 

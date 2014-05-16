@@ -42,9 +42,13 @@ L["Settings_Threshold_Average_Description"] = "구입 가격이 최근 구매 �
 L["Settings_Threshold_EmptyCoffers_Enable"] = "빈 금고 임계 값을 사용 [1-100%]:"
 L["Settings_Threshold_EmptyCoffers_Description"] = "구입은 현재 잔액의 지정된 비율보다 비용이 경우 요청 확인."
 
+L["Settings_Modules_Button"] = "모듈"
+
 
 	--[[ MODULES ]]
-	
+
+L["Modules_WindowTitle"] = "구매 확인 모듈"
+
 L["Module_Enable"] = "모듈 활성화"
 	
 L["Module_VendorPurchase_Title"] = "공급 업체: 매수"

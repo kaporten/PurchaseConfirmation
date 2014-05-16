@@ -42,9 +42,13 @@ L["Settings_Threshold_Average_Description"] = "Request confirmation if purchase 
 L["Settings_Threshold_EmptyCoffers_Enable"] = "Enable \"empty coffers\" threshold [1-100%]:"
 L["Settings_Threshold_EmptyCoffers_Description"] = "Request confirmation if purchase cost more than the specified percentage of your current balance."
 
+L["Settings_Modules_Button"] = "Modules"
+
 
 	--[[ MODULES ]]
 	
+L["Modules_WindowTitle"] = "PurchaseConfirmation Modules"
+
 L["Module_Enable"] = "Enable Module"
 	
 L["Module_VendorPurchase_Title"] = "Vendor: Purchase"

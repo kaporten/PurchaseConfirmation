@@ -21,12 +21,12 @@ require "Item"
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
 local DEBUG_MODE = false 
-local LOG_LEVEL = "ERROR"
+local LOG_LEVEL = "INFO"
 
 
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = {2, 2, 2} -- major, minor, bugfix
+local ADDON_VERSION = {2, 2, 3} -- major, minor, bugfix
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
