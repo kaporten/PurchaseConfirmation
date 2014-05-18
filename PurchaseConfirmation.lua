@@ -157,7 +157,6 @@ end
 
 --- Use GeminiLocale to localize static fields on the dialog.
 function PurchaseConfirmation:LocalizeDialog(wnd)	
-	wnd:FindChild("DialogArea"):FindChild("Title"):SetText(locale["Dialog_WindowTitle"])
 	wnd:FindChild("DialogArea"):FindChild("DetailsButton"):SetText("   " .. locale["Dialog_ButtonDetails"]) -- 3 spaces as leftpadding
 
 	wnd:FindChild("FoldoutArea"):FindChild("ThresholdFixed"):FindChild("Label"):SetText(locale["Dialog_DetailsLabel_Fixed"])
@@ -237,7 +236,7 @@ function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
 	local tCurrency = tPurchaseData.tCurrency
 	
 	-- Prepare central details area	
-	local wndDetails = tCallbackData.module:ProduceDialogDetailsWindow(tPurchaseData)
+	local wndDetails, tStrings = tCallbackData.module:GetDialogDetails(tPurchaseData)
 	
 	-- Hide all detail children
 	local children = self.wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea"):GetChildren()
@@ -253,12 +252,29 @@ function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
 	self:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdAverage"),		tThresholds.average, 		tCurrency)
 	self:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdEmptyCoffers"), 	tThresholds.emptyCoffers, 	tCurrency)
 		
-	-- Set full purchase on dialog window
+	-- Set full purchase data on dialog window
 	self.wndDialog:SetData(tPurchaseData)
+	
+	-- Default text values for dialog
+	local strTitle = Apollo.GetString("CRB_Confirm") .. " " .. Apollo.GetString("CRB_Purchase") -- "Confirm Purchase"
+	local strConfirm = Apollo.GetString("CRB_Purchase") -- "Purchase"
+	local strCancel = Apollo.GetString("Launcher_Cancel") -- "Cancel"
+
+	-- Override default texts with module-supplied ones, if available
+	if type(tStrings) == "table" then
+		strTitle = tStrings.strTitle or strTitle
+		strConfirm = tStrings.strConfirm or strConfirm
+		strCancel = tStrings.strCancel or strCancel
+	end
+
+	-- Set texts on dialog
+	self.wndDialog:FindChild("DialogArea"):FindChild("WindowTitle"):SetText(strTitle)
+	self.wndDialog:FindChild("DialogArea"):FindChild("PurchaseButton"):SetText(strConfirm)
+	self.wndDialog:FindChild("DialogArea"):FindChild("CancelButton"):SetText(strCancel)
 	
 	-- Show dialog, await button click
 	self.wndDialog:ToFront()
-	self.wndDialog:Show(true)
+	self.wndDialog:Show(true, false)
 end
 
 

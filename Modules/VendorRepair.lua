@@ -99,7 +99,7 @@ function VendorRepair:Activate()
 	if module.hook == nil then
 		log:info("Activating module: " .. module.MODULE_ID)
 		module.hook = vendor.FinalizeBuy -- store ref to original function
-		vendor.FinalizeBuy = module.InterceptPurchase -- replace Vendors FinalizeBuy with own interceptor
+		vendor.FinalizeBuy = module.InterceptRepair -- replace Vendors FinalizeBuy with own interceptor
 	else
 		log:debug("Module " .. module.MODULE_ID .. " already active, ignoring Activate request")
 	end
@@ -118,7 +118,7 @@ end
 --- Main hook interceptor function.
 -- Called on Vendor's "Purchase" buttonclick / item rightclick.
 -- @tItemData item being "operated on" (purchase, sold, buyback) on the Vendr
-function VendorRepair:InterceptPurchase(tItemData)
+function VendorRepair:InterceptRepair(tItemData)
 	log:debug("InterceptPurchase: enter method")
 		
 	-- Store item details for easier debugging. Not actually used in application code.
@@ -180,8 +180,29 @@ function VendorRepair:InterceptPurchase(tItemData)
 	addon:PriceCheck(tPurchaseData)
 end
 
+--- Extracts the repair cost for an item
+-- @param tItemData Current item to repair, as supplied by the Vendor addon
+function VendorRepair:GetRepairCost(tItemData)
+	log:debug("GetRepairCost: enter method")
+		
+	local idLocation = tItemData and tItemData.idLocation or nil
+	if idLocation then
+		return tItemData.itemData:GetRepairCost() -- single item repair
+	else
+		-- Summarize total repair cost manually
+		local total = 0
+		for _,v in pairs(vendor.tRepairableItems) do
+			total = total + v.itemData:GetRepairCost()
+		end 
+		return total
+	end
+end
 
-function VendorRepair:ProduceDialogDetailsWindow(tPurchaseData)	
+--- Provide details for if/when the main-addon decides to show the confirmation dialog.
+-- @param tPurchaseDetails, containing all required info about on-going purchase
+-- @return [1] window to display on the central details-spot on the dialog.
+-- @return [2] table of text strings to set for title/buttons on the dialog
+function VendorRepair:GetDialogDetails(tPurchaseData)	
 	log:debug("ProduceDialogDetailsWindow: enter method")
 
 	local tCallbackData = tPurchaseData.tCallbackData
@@ -226,25 +247,17 @@ function VendorRepair:ProduceDialogDetailsWindow(tPurchaseData)
 	module.wndItem:Show(tItemData, true)
 	module.wndAll:Show(not tItemData, true)
 
-	return wnd
-end
-
-
---- Extracts the repair cost for an item
--- @param tItemData Current item to repair, as supplied by the Vendor addon
-function VendorRepair:GetRepairCost(tItemData)
-	log:debug("GetRepairCost: enter method")
-		
-	local idLocation = tItemData and tItemData.idLocation or nil
-	if idLocation then
-		return tItemData.itemData:GetRepairCost() -- single item repair
+	
+	-- Build optional table of static text strings (strTitle, StrConfirm, strCancel)
+	tStrings = {}
+	tStrings.strTitle = Apollo.GetString("CRB_Confirm") .. " " .. Apollo.GetString("Launcher_Repair") -- "Confirm Repair"
+	if tItemData then
+		tStrings.strConfirm = Apollo.GetString("Launcher_Repair") -- "Repair"
 	else
-		-- Summarize total repair cost manually
-		local total = 0
-		for _,v in pairs(vendor.tRepairableItems) do
-			total = total + v.itemData:GetRepairCost()
-		end
-		return total
-	end
+		tStrings.strConfirm = Apollo.GetString("Vendor_RepairAll", "(" .. #vendor.tRepairableItems .. ")") -- "Repair All (n)"
+	end	
+	
+	return wnd, tStrings
 end
+
 

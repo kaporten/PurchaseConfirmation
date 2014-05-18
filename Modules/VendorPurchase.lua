@@ -108,7 +108,7 @@ end
 
 --- Main hook interceptor function.
 -- Called on Vendor's "Purchase" buttonclick / item rightclick.
--- @tItemData item being "operated on" (purchase, sold, buyback) on the Vendr
+-- @tItemData item being "operated on" (purchase, sold, buyback) on the Vendor
 function VendorPurchase:InterceptPurchase(tItemData)
 	log:debug("InterceptPurchase: enter method")
 		
@@ -167,9 +167,24 @@ function VendorPurchase:InterceptPurchase(tItemData)
 	addon:PriceCheck(tPurchaseData)
 end
 
+--- Extracts item price from tItemData
+-- @param tItemData Current purchase item data, as supplied by the Vendor addon
+function VendorPurchase:GetItemPrice(tItemData)
+	log:debug("GetItemPrice: enter method")
+		
+	-- NB: "itemData" is a table property on tItemData. Yeah.
+	local monPrice = tItemData.itemData:GetBuyPrice():Multiply(tItemData.nStackSize):GetAmount()
+	log:debug("GetItemPrice: Item price extracted: " .. monPrice)
 
-function VendorPurchase:ProduceDialogDetailsWindow(tPurchaseData)
-	log:debug("ProduceDialogDetailsWindow: enter method")
+	return monPrice
+end
+
+--- Provide details for if/when the main-addon decides to show the confirmation dialog.
+-- @param tPurchaseDetails, containing all required info about on-going purchase
+-- @return [1] window to display on the central details-spot on the dialog.
+-- @return [2] table of text strings to set for title/buttons on the dialog
+function VendorPurchase:GetDialogDetails(tPurchaseData)
+	log:debug("GetDialogWindowDetails: enter method")
 
 	local tCallbackData = tPurchaseData.tCallbackData
 	local monPrice = tPurchaseData.monPrice	
@@ -212,16 +227,6 @@ function VendorPurchase:ProduceDialogDetailsWindow(tPurchaseData)
 end
 
 
---- Extracts item price from tItemData
--- @param tItemData Current purchase item data, as supplied by the Vendor addon
-function VendorPurchase:GetItemPrice(tItemData)
-	log:debug("GetItemPrice: enter method")
-		
-	-- NB: "itemData" is a table property on tItemData. Yeah.
-	local monPrice = tItemData.itemData:GetBuyPrice():Multiply(tItemData.nStackSize):GetAmount()
-	log:debug("GetItemPrice: Item price extracted: " .. monPrice)
 
-	return monPrice
-end
 
 
