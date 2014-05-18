@@ -105,49 +105,10 @@ function VendorPurchase:Deactivate()
 	end
 end
 
-function VendorPurchase:UpdateDialogDetails(monPrice, tCallbackData)	
-	log:debug("PrepareDialogDetails: enter method")
-
-	local tItemData = tCallbackData.hookParams
-	local wnd = module.wnd
-	
-	-- Set basic info on details area
-	wnd:FindChild("ItemName"):SetText(tItemData.strName)
-	wnd:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
-	wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
-	wnd:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
-	wnd:FindChild("CantUse"):Show(vendor:HelperPrereqFailed(tItemData))
-	
-	-- Only show stack size count if we're buying more a >1 size stack
-	if (tItemData.nStackSize > 1) then
-		wnd:FindChild("StackSize"):SetText(tItemData.nStackSize)
-		wnd:FindChild("StackSize"):Show(true, true)
-	else
-		wnd:FindChild("StackSize"):Show(false, true)
-	end
-	
-	-- Extract item quality
-	local eQuality = tonumber(Item.GetDetailedInfo(tItemData).tPrimary.eQuality)
-
-	-- Add pixie quality-color border to the ItemIcon element
-	local tPixieOverlay = {
-		strSprite = "UI_BK3_ItemQualityWhite",
-		loc = {fPoints = {0, 0, 1, 1}, nOffsets = {0, 0, 0, 0}},
-		cr = qualityColors[math.max(1, math.min(eQuality, #qualityColors))]
-	}
-	wnd:FindChild("ItemIcon"):DestroyAllPixies()
-	wnd:FindChild("ItemIcon"):AddPixie(tPixieOverlay)
-
-	-- Update tooltip to match current item
-	wnd:SetData(tItemData)	
-	vendor:OnVendorListItemGenerateTooltip(self.wnd, self.wnd)
-
-	return wnd
-end
 
 --- Main hook interceptor function.
 -- Called on Vendor's "Purchase" buttonclick / item rightclick.
--- @tItemData item being "operated on" (purchase, sold, buyback) on the Vendr
+-- @tItemData item being "operated on" (purchase, sold, buyback) on the Vendor
 function VendorPurchase:InterceptPurchase(tItemData)
 	log:debug("InterceptPurchase: enter method")
 		
@@ -206,7 +167,6 @@ function VendorPurchase:InterceptPurchase(tItemData)
 	addon:PriceCheck(tPurchaseData)
 end
 
-
 --- Extracts item price from tItemData
 -- @param tItemData Current purchase item data, as supplied by the Vendor addon
 function VendorPurchase:GetItemPrice(tItemData)
@@ -218,5 +178,55 @@ function VendorPurchase:GetItemPrice(tItemData)
 
 	return monPrice
 end
+
+--- Provide details for if/when the main-addon decides to show the confirmation dialog.
+-- @param tPurchaseDetails, containing all required info about on-going purchase
+-- @return [1] window to display on the central details-spot on the dialog.
+-- @return [2] table of text strings to set for title/buttons on the dialog
+function VendorPurchase:GetDialogDetails(tPurchaseData)
+	log:debug("GetDialogWindowDetails: enter method")
+
+	local tCallbackData = tPurchaseData.tCallbackData
+	local monPrice = tPurchaseData.monPrice	
+	
+	local tItemData = tCallbackData.hookParams
+	local wnd = module.wnd
+	
+	-- Set basic info on details area
+	wnd:FindChild("ItemName"):SetText(tItemData.strName)
+	wnd:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
+	wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
+	wnd:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
+	wnd:FindChild("CantUse"):Show(vendor:HelperPrereqFailed(tItemData))
+	
+	-- Only show stack size count if we're buying more a >1 size stack
+	if (tItemData.nStackSize > 1) then
+		wnd:FindChild("StackSize"):SetText(tItemData.nStackSize)
+		wnd:FindChild("StackSize"):Show(true, true)
+	else
+		wnd:FindChild("StackSize"):Show(false, true)
+	end
+	
+	-- Extract item quality
+	local eQuality = tonumber(Item.GetDetailedInfo(tItemData).tPrimary.eQuality)
+
+	-- Add pixie quality-color border to the ItemIcon element
+	local tPixieOverlay = {
+		strSprite = "UI_BK3_ItemQualityWhite",
+		loc = {fPoints = {0, 0, 1, 1}, nOffsets = {0, 0, 0, 0}},
+		cr = qualityColors[math.max(1, math.min(eQuality, #qualityColors))]
+	}
+	wnd:FindChild("ItemIcon"):DestroyAllPixies()
+	wnd:FindChild("ItemIcon"):AddPixie(tPixieOverlay)
+
+	-- Update tooltip to match current item
+	wnd:SetData(tItemData)	
+	vendor:OnVendorListItemGenerateTooltip(self.wnd, self.wnd)
+
+	return wnd
+end
+
+
+
 
 

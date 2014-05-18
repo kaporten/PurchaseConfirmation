@@ -9,7 +9,6 @@ if not L then return end
 	--[[ CONFIRMATION DIALOG ]]
 
 -- Main window labels
-L["Dialog_WindowTitle"] = "Einkauf Bestätigung"
 L["Dialog_ButtonDetails"] = "Detail"
 
 -- Detail window foldout labels
@@ -41,3 +40,23 @@ L["Settings_Threshold_Average_Description"] = "Bestätigung anfordern, wenn Kauf
 
 L["Settings_Threshold_EmptyCoffers_Enable"] = "\"Leeren Kassen\" Schwelle aktivieren [1-100%]:"
 L["Settings_Threshold_EmptyCoffers_Description"] = "Bestätigung anfordern, wenn Kauf mehr kosten als der angegebene Prozentsatz von Ihren aktuellen Kontostand."
+
+L["Settings_Modules_Button"] = "Module"
+
+
+	--[[ MODULES ]]
+
+L["Modules_WindowTitle"] = "PurchaseConfirmation Module"
+
+L["Module_Enable"] = "Aktivieren Modul"
+	
+L["Module_VendorPurchase_Title"] = "Verkäufer: Kauf"
+L["Module_VendorPurchase_Description"] = "Dieses Modul fängt Artikel Einkäufe in der Haupt-Verkäufer-Addon. Dies umfasst alle regulären Hersteller, wie zB allgemeine Ware-Anbieter, während Nexus verstreut."
+L["Module_VendorPurchase_DialogHeader"] = "Confirm Purchase"
+L["Module_VendorPurchase_DialogAcceptButton"] = "Purchase"
+
+L["Module_VendorRepair_Title"] = "Verkäufer: Reparieren"
+L["Module_VendorRepair_Description"] = "Dieses Modul Abschnitte ein-und all-Artikel Reparaturen in der Haupt-Verkäufer-Addon durchgeführt. Es muss nicht fordern Bestätigung für die Auto-Reparaturen durch Addon 'JunkIt' initiiert."
+L["Module_VendorRepair_DialogHeader"] = "Confirm Repair"
+L["Module_VendorRepair_DialogAcceptButton_Single"] = "Repair"
+L["Module_VendorRepair_DialogAcceptButton_All"] = "Repair All"

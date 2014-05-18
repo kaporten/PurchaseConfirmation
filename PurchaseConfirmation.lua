@@ -26,7 +26,7 @@ local LOG_LEVEL = "ERROR"
 
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = {2, 2, 2} -- major, minor, bugfix
+local ADDON_VERSION = {2, 2, 3} -- major, minor, bugfix
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
@@ -39,7 +39,6 @@ local locale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("Purcha
  
 -- Height of the details-foldout
 local FOLDOUT_HEIGHT = 100
-
 
 
 -- Standard object instance creation
@@ -155,9 +154,12 @@ function PurchaseConfirmation:OnDocLoaded()
 	end
 end
 
+function PurchaseConfirmation:GetVersion()
+	return ADDON_VERSION
+end
+
 --- Use GeminiLocale to localize static fields on the dialog.
 function PurchaseConfirmation:LocalizeDialog(wnd)	
-	wnd:FindChild("DialogArea"):FindChild("Title"):SetText(locale["Dialog_WindowTitle"])
 	wnd:FindChild("DialogArea"):FindChild("DetailsButton"):SetText("   " .. locale["Dialog_ButtonDetails"]) -- 3 spaces as leftpadding
 
 	wnd:FindChild("FoldoutArea"):FindChild("ThresholdFixed"):FindChild("Label"):SetText(locale["Dialog_DetailsLabel_Fixed"])
@@ -230,14 +232,14 @@ end
 --- Price for current purchase is unsafe: show confirmation dialogue
 -- Configure all relevant fields & display properties in confirmation dialog before showing
 -- @param tThresholds Detailed data on which thresholds were breached
--- @param tCallbackData Addonhook-specific callback data
+-- @param tPurchaseData Aggregated data for purchase and addon requesting purchase
 function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
 	local tCallbackData = tPurchaseData.tCallbackData
 	local monPrice = tPurchaseData.monPrice
 	local tCurrency = tPurchaseData.tCurrency
 	
 	-- Prepare central details area	
-	local wndDetails = tCallbackData.module:UpdateDialogDetails(monPrice, tCallbackData)
+	local wndDetails, tStrings = tCallbackData.module:GetDialogDetails(tPurchaseData)
 	
 	-- Hide all detail children
 	local children = self.wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea"):GetChildren()
@@ -253,12 +255,29 @@ function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
 	self:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdAverage"),		tThresholds.average, 		tCurrency)
 	self:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdEmptyCoffers"), 	tThresholds.emptyCoffers, 	tCurrency)
 		
-	-- Set full purchase on dialog window
+	-- Set full purchase data on dialog window
 	self.wndDialog:SetData(tPurchaseData)
+	
+	-- Default text values for dialog
+	local strTitle = Apollo.GetString("CRB_Confirm") .. " " .. Apollo.GetString("CRB_Purchase") -- "Confirm Purchase"
+	local strConfirm = Apollo.GetString("CRB_Purchase") -- "Purchase"
+	local strCancel = Apollo.GetString("Launcher_Cancel") -- "Cancel"
+
+	-- Override default texts with module-supplied ones, if available
+	if type(tStrings) == "table" then
+		strTitle = tStrings.strTitle or strTitle
+		strConfirm = tStrings.strConfirm or strConfirm
+		strCancel = tStrings.strCancel or strCancel
+	end
+
+	-- Set texts on dialog
+	self.wndDialog:FindChild("DialogArea"):FindChild("WindowTitle"):SetText(strTitle)
+	self.wndDialog:FindChild("DialogArea"):FindChild("PurchaseButton"):SetText(strConfirm)
+	self.wndDialog:FindChild("DialogArea"):FindChild("CancelButton"):SetText(strCancel)
 	
 	-- Show dialog, await button click
 	self.wndDialog:ToFront()
-	self.wndDialog:Show(true)
+	self.wndDialog:Show(true, false)
 end
 
 
@@ -269,7 +288,7 @@ function PurchaseConfirmation:CompletePurchase(tCallbackData)
 	
 	-- Delegate to supplied hook method, unless debug mode is on
 	if DEBUG_MODE == true then
-		Print("PurchaseConfirmation: purchase ignored!")
+		Print("PurchaseConfirmation: DEBUG MODE: - purchase ignored!")
 	else
 		tCallbackData.hook(tCallbackData.hookedAddon, tCallbackData.hookParams)
 	end	
@@ -382,6 +401,7 @@ function PurchaseConfirmation:GetSupportedCurrencyByEnum(eType)
 	return nil
 end
 
+--- Activates or deactivates individual modules, as specified in settings.
 function PurchaseConfirmation:UpdateModuleStatus()
 	for _,module in pairs(self.modules) do
 		if self.tSettings.Modules[module.MODULE_ID].bEnabled == true then
@@ -391,7 +411,6 @@ function PurchaseConfirmation:UpdateModuleStatus()
 		end
 	end
 end
-
 
 
 ---------------------------------------------------------------------------------------------------

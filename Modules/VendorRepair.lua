@@ -99,7 +99,7 @@ function VendorRepair:Activate()
 	if module.hook == nil then
 		log:info("Activating module: " .. module.MODULE_ID)
 		module.hook = vendor.FinalizeBuy -- store ref to original function
-		vendor.FinalizeBuy = module.InterceptPurchase -- replace Vendors FinalizeBuy with own interceptor
+		vendor.FinalizeBuy = module.InterceptRepair -- replace Vendors FinalizeBuy with own interceptor
 	else
 		log:debug("Module " .. module.MODULE_ID .. " already active, ignoring Activate request")
 	end
@@ -115,55 +115,10 @@ function VendorRepair:Deactivate()
 	end
 end
 
-function VendorRepair:UpdateDialogDetails(monPrice, tCallbackData)	
-	log:debug("PrepareDialogDetails: enter method")
-
-	local tItemData = tCallbackData.hookParams
-	local wnd
-	
-	if tItemData then
-		-- Single item repair (basically the same as single-item purchase)
-		wnd = module.wndItem
-		wnd:FindChild("ItemName"):SetText(tItemData.strName)
-		wnd:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
-		wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
-		wnd:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
-		wnd:FindChild("CantUse"):Show(vendor:HelperPrereqFailed(tItemData))
-					
-		-- Extract item quality
-		local eQuality = tonumber(Item.GetDetailedInfo(tItemData).tPrimary.eQuality)
-	
-		-- Add pixie quality-color border to the ItemIcon element
-		local tPixieOverlay = {
-			strSprite = "UI_BK3_ItemQualityWhite",
-			loc = {fPoints = {0, 0, 1, 1}, nOffsets = {0, 0, 0, 0}},
-			cr = qualityColors[math.max(1, math.min(eQuality, #qualityColors))]
-		}
-		wnd:FindChild("ItemIcon"):DestroyAllPixies()
-		wnd:FindChild("ItemIcon"):AddPixie(tPixieOverlay)
-
-		-- Update tooltip to match current item
-		wnd:SetData(tItemData)	
-		vendor:OnVendorListItemGenerateTooltip(wnd, wnd)				
-	else
-		-- All items repair
-		wnd = module.wndAll
-		wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
-		wnd:FindChild("ItemPrice"):SetMoneySystem(tCallbackData.eCurrencyType1)		
-	end
-	
-	
-	-- Set basic info on details area
-	module.wndItem:Show(tItemData, true)
-	module.wndAll:Show(not tItemData, true)
-
-	return wnd
-end
-
 --- Main hook interceptor function.
 -- Called on Vendor's "Purchase" buttonclick / item rightclick.
 -- @tItemData item being "operated on" (purchase, sold, buyback) on the Vendr
-function VendorRepair:InterceptPurchase(tItemData)
+function VendorRepair:InterceptRepair(tItemData)
 	log:debug("InterceptPurchase: enter method")
 		
 	-- Store item details for easier debugging. Not actually used in application code.
@@ -238,8 +193,72 @@ function VendorRepair:GetRepairCost(tItemData)
 		local total = 0
 		for _,v in pairs(vendor.tRepairableItems) do
 			total = total + v.itemData:GetRepairCost()
-		end
+		end 
 		return total
 	end
 end
+
+--- Provide details for if/when the main-addon decides to show the confirmation dialog.
+-- @param tPurchaseDetails, containing all required info about on-going purchase
+-- @return [1] window to display on the central details-spot on the dialog.
+-- @return [2] table of text strings to set for title/buttons on the dialog
+function VendorRepair:GetDialogDetails(tPurchaseData)	
+	log:debug("ProduceDialogDetailsWindow: enter method")
+
+	local tCallbackData = tPurchaseData.tCallbackData
+	local monPrice = tPurchaseData.monPrice		
+	
+	local tItemData = tCallbackData.hookParams
+	local wnd
+	
+	if tItemData then
+		-- Single item repair (basically the same as single-item purchase)
+		wnd = module.wndItem
+		wnd:FindChild("ItemName"):SetText(tItemData.strName)
+		wnd:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
+		wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
+		wnd:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
+		wnd:FindChild("CantUse"):Show(vendor:HelperPrereqFailed(tItemData))
+					
+		-- Extract item quality
+		local eQuality = tonumber(Item.GetDetailedInfo(tItemData).tPrimary.eQuality)
+	
+		-- Add pixie quality-color border to the ItemIcon element
+		local tPixieOverlay = {
+			strSprite = "UI_BK3_ItemQualityWhite",
+			loc = {fPoints = {0, 0, 1, 1}, nOffsets = {0, 0, 0, 0}},
+			cr = qualityColors[math.max(1, math.min(eQuality, #qualityColors))]
+		}
+		wnd:FindChild("ItemIcon"):DestroyAllPixies()
+		wnd:FindChild("ItemIcon"):AddPixie(tPixieOverlay)
+
+		-- Update tooltip to match current item
+		wnd:SetData(tItemData)	
+		vendor:OnVendorListItemGenerateTooltip(wnd, wnd)				
+	else
+		-- All items repair
+		wnd = module.wndAll
+		wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
+		wnd:FindChild("ItemPrice"):SetMoneySystem(tCallbackData.eCurrencyType1)		
+	end
+	
+	
+	-- Set basic info on details area
+	module.wndItem:Show(tItemData, true)
+	module.wndAll:Show(not tItemData, true)
+
+	
+	-- Build optional table of static text strings (strTitle, StrConfirm, strCancel)
+	tStrings = {}
+	tStrings.strTitle = Apollo.GetString("CRB_Confirm") .. " " .. Apollo.GetString("Launcher_Repair") -- "Confirm Repair"
+	if tItemData then
+		tStrings.strConfirm = Apollo.GetString("Launcher_Repair") -- "Repair"
+	else
+		-- To keep consistent with stock Vendor UI, don't show item count on button
+		tStrings.strConfirm = String_GetWeaselString(Apollo.GetString("Vendor_RepairAll"), "") -- "Repair All" 
+	end	
+	
+	return wnd, tStrings
+end
+
 
