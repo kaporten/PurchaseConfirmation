@@ -254,7 +254,8 @@ function VendorRepair:GetDialogDetails(tPurchaseData)
 	if tItemData then
 		tStrings.strConfirm = Apollo.GetString("Launcher_Repair") -- "Repair"
 	else
-		tStrings.strConfirm = Apollo.GetString("Vendor_RepairAll", "(" .. #vendor.tRepairableItems .. ")") -- "Repair All (n)"
+		-- To keep consistent with stock Vendor UI, don't show item count on button
+		tStrings.strConfirm = String_GetWeaselString(Apollo.GetString("Vendor_RepairAll"), "") -- "Repair All" 
 	end	
 	
 	return wnd, tStrings

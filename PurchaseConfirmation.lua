@@ -20,8 +20,8 @@ require "Item"
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
-local DEBUG_MODE = true 
-local LOG_LEVEL = "INFO"
+local DEBUG_MODE = false 
+local LOG_LEVEL = "ERROR"
 
 
 -- Constants for addon name, version etc.
@@ -39,7 +39,6 @@ local locale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("Purcha
  
 -- Height of the details-foldout
 local FOLDOUT_HEIGHT = 100
-
 
 
 -- Standard object instance creation
@@ -153,6 +152,10 @@ function PurchaseConfirmation:OnDocLoaded()
 	if DEBUG_MODE == true then
 		Print("Addon '" .. ADDON_NAME .. "' running in debug-mode! Vendor purchases are disabled. Please contact me via Curse if you ever see this, since I probably forgot to disable debug-mode before releasing. For shame :(")
 	end
+end
+
+function PurchaseConfirmation:GetVersion()
+	return ADDON_VERSION
 end
 
 --- Use GeminiLocale to localize static fields on the dialog.

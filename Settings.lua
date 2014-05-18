@@ -60,6 +60,7 @@ function Settings:OnDocLoaded()
 	end	
 	self.wndSettings:Show(false, true)
 	self:LocalizeSettings(self.wndSettings)
+	self.wndSettings:FindChild("VersionLabel"):SetText(self:GetVersionString())
 	
 	-- Load currency-distinct
 	for i,tCurrency in ipairs(addon.seqCurrencies) do
@@ -118,6 +119,20 @@ function Settings:OnDocLoaded()
 	end
 
 	self.xmlDoc = nil
+end
+
+function Settings:GetVersionString()
+	local str = "v"
+	local first = true
+	for _,v in ipairs(addon:GetVersion()) do
+		if first then 
+			str = str .. v
+			first = false
+		else 
+			str = str .. "." .. v
+		end
+	end
+	return str
 end
 
 function Settings:LocalizeModulesWindow(wnd)
