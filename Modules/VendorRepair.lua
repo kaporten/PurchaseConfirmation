@@ -115,9 +115,12 @@ function VendorRepair:Deactivate()
 	end
 end
 
-function VendorRepair:UpdateDialogDetails(monPrice, tCallbackData)	
-	log:debug("PrepareDialogDetails: enter method")
+function VendorRepair:ProduceDialogDetailsWindow(tPurchaseData)	
+	log:debug("ProduceDialogDetailsWindow: enter method")
 
+	local tCallbackData = tPurchaseData.tCallbackData
+	local monPrice = tPurchaseData.monPrice		
+	
 	local tItemData = tCallbackData.hookParams
 	local wnd
 	

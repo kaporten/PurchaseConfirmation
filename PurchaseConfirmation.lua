@@ -20,7 +20,7 @@ require "Item"
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
-local DEBUG_MODE = false 
+local DEBUG_MODE = true 
 local LOG_LEVEL = "INFO"
 
 
@@ -230,14 +230,14 @@ end
 --- Price for current purchase is unsafe: show confirmation dialogue
 -- Configure all relevant fields & display properties in confirmation dialog before showing
 -- @param tThresholds Detailed data on which thresholds were breached
--- @param tCallbackData Addonhook-specific callback data
+-- @param tPurchaseData Aggregated data for purchase and addon requesting purchase
 function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
 	local tCallbackData = tPurchaseData.tCallbackData
 	local monPrice = tPurchaseData.monPrice
 	local tCurrency = tPurchaseData.tCurrency
 	
 	-- Prepare central details area	
-	local wndDetails = tCallbackData.module:UpdateDialogDetails(monPrice, tCallbackData)
+	local wndDetails = tCallbackData.module:ProduceDialogDetailsWindow(tPurchaseData)
 	
 	-- Hide all detail children
 	local children = self.wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea"):GetChildren()
@@ -269,7 +269,7 @@ function PurchaseConfirmation:CompletePurchase(tCallbackData)
 	
 	-- Delegate to supplied hook method, unless debug mode is on
 	if DEBUG_MODE == true then
-		Print("PurchaseConfirmation: purchase ignored!")
+		Print("PurchaseConfirmation: DEBUG MODE: - purchase ignored!")
 	else
 		tCallbackData.hook(tCallbackData.hookedAddon, tCallbackData.hookParams)
 	end	
@@ -382,6 +382,7 @@ function PurchaseConfirmation:GetSupportedCurrencyByEnum(eType)
 	return nil
 end
 
+--- Activates or deactivates individual modules, as specified in settings.
 function PurchaseConfirmation:UpdateModuleStatus()
 	for _,module in pairs(self.modules) do
 		if self.tSettings.Modules[module.MODULE_ID].bEnabled == true then
@@ -391,7 +392,6 @@ function PurchaseConfirmation:UpdateModuleStatus()
 		end
 	end
 end
-
 
 
 ---------------------------------------------------------------------------------------------------

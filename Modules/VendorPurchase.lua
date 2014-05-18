@@ -105,9 +105,12 @@ function VendorPurchase:Deactivate()
 	end
 end
 
-function VendorPurchase:UpdateDialogDetails(monPrice, tCallbackData)	
-	log:debug("PrepareDialogDetails: enter method")
+function VendorPurchase:ProduceDialogDetailsWindow(tPurchaseData)
+	log:debug("ProduceDialogDetailsWindow: enter method")
 
+	local tCallbackData = tPurchaseData.tCallbackData
+	local monPrice = tPurchaseData.monPrice	
+	
 	local tItemData = tCallbackData.hookParams
 	local wnd = module.wnd
 	
