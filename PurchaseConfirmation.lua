@@ -26,7 +26,7 @@ local LOG_LEVEL = "ERROR"
 
 -- Constants for addon name, version etc.
 local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = {2, 2, 3} -- major, minor, bugfix
+local ADDON_VERSION = {2, 3, 0} -- major, minor, bugfix
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
