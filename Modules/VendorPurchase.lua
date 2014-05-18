@@ -105,48 +105,6 @@ function VendorPurchase:Deactivate()
 	end
 end
 
-function VendorPurchase:ProduceDialogDetailsWindow(tPurchaseData)
-	log:debug("ProduceDialogDetailsWindow: enter method")
-
-	local tCallbackData = tPurchaseData.tCallbackData
-	local monPrice = tPurchaseData.monPrice	
-	
-	local tItemData = tCallbackData.hookParams
-	local wnd = module.wnd
-	
-	-- Set basic info on details area
-	wnd:FindChild("ItemName"):SetText(tItemData.strName)
-	wnd:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
-	wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
-	wnd:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
-	wnd:FindChild("CantUse"):Show(vendor:HelperPrereqFailed(tItemData))
-	
-	-- Only show stack size count if we're buying more a >1 size stack
-	if (tItemData.nStackSize > 1) then
-		wnd:FindChild("StackSize"):SetText(tItemData.nStackSize)
-		wnd:FindChild("StackSize"):Show(true, true)
-	else
-		wnd:FindChild("StackSize"):Show(false, true)
-	end
-	
-	-- Extract item quality
-	local eQuality = tonumber(Item.GetDetailedInfo(tItemData).tPrimary.eQuality)
-
-	-- Add pixie quality-color border to the ItemIcon element
-	local tPixieOverlay = {
-		strSprite = "UI_BK3_ItemQualityWhite",
-		loc = {fPoints = {0, 0, 1, 1}, nOffsets = {0, 0, 0, 0}},
-		cr = qualityColors[math.max(1, math.min(eQuality, #qualityColors))]
-	}
-	wnd:FindChild("ItemIcon"):DestroyAllPixies()
-	wnd:FindChild("ItemIcon"):AddPixie(tPixieOverlay)
-
-	-- Update tooltip to match current item
-	wnd:SetData(tItemData)	
-	vendor:OnVendorListItemGenerateTooltip(self.wnd, self.wnd)
-
-	return wnd
-end
 
 --- Main hook interceptor function.
 -- Called on Vendor's "Purchase" buttonclick / item rightclick.
@@ -207,6 +165,50 @@ function VendorPurchase:InterceptPurchase(tItemData)
 		
 	-- Request pricecheck
 	addon:PriceCheck(tPurchaseData)
+end
+
+
+function VendorPurchase:ProduceDialogDetailsWindow(tPurchaseData)
+	log:debug("ProduceDialogDetailsWindow: enter method")
+
+	local tCallbackData = tPurchaseData.tCallbackData
+	local monPrice = tPurchaseData.monPrice	
+	
+	local tItemData = tCallbackData.hookParams
+	local wnd = module.wnd
+	
+	-- Set basic info on details area
+	wnd:FindChild("ItemName"):SetText(tItemData.strName)
+	wnd:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
+	wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
+	wnd:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
+	wnd:FindChild("CantUse"):Show(vendor:HelperPrereqFailed(tItemData))
+	
+	-- Only show stack size count if we're buying more a >1 size stack
+	if (tItemData.nStackSize > 1) then
+		wnd:FindChild("StackSize"):SetText(tItemData.nStackSize)
+		wnd:FindChild("StackSize"):Show(true, true)
+	else
+		wnd:FindChild("StackSize"):Show(false, true)
+	end
+	
+	-- Extract item quality
+	local eQuality = tonumber(Item.GetDetailedInfo(tItemData).tPrimary.eQuality)
+
+	-- Add pixie quality-color border to the ItemIcon element
+	local tPixieOverlay = {
+		strSprite = "UI_BK3_ItemQualityWhite",
+		loc = {fPoints = {0, 0, 1, 1}, nOffsets = {0, 0, 0, 0}},
+		cr = qualityColors[math.max(1, math.min(eQuality, #qualityColors))]
+	}
+	wnd:FindChild("ItemIcon"):DestroyAllPixies()
+	wnd:FindChild("ItemIcon"):AddPixie(tPixieOverlay)
+
+	-- Update tooltip to match current item
+	wnd:SetData(tItemData)	
+	vendor:OnVendorListItemGenerateTooltip(self.wnd, self.wnd)
+
+	return wnd
 end
 
 
