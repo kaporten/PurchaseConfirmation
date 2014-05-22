@@ -3,7 +3,7 @@ require "Window"
 
 --[[
 	Provides hook-in functionality for the Vendor addon,
-	specifically for the regular "purchase item" functionality.
+	specifically for the regular "repair item" functionality.
 ]]
 
 -- GeminiLocale
@@ -52,10 +52,9 @@ function VendorRepair:Init()
 			
 	-- Ensures an open confirm dialog is closed when leaving vendor range
 	-- NB: register the event so that it is fired on main addon, not this wrapper
-	-- TODO: Test how this plays out with 2 vendors in close proximity (open both, move away from one)
 	Apollo.RegisterEventHandler("CloseVendorWindow", "OnCancelPurchase", addon)
 	
-	self.xmlDoc = XmlDoc.CreateFromFile("Modules/VendorRepair.xml")
+	self.xmlDoc = XmlDoc.CreateFromFile("VendorRepair.xml")
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
 	
 	return self
@@ -99,7 +98,7 @@ function VendorRepair:Activate()
 	if module.hook == nil then
 		log:info("Activating module: " .. module.MODULE_ID)
 		module.hook = vendor.FinalizeBuy -- store ref to original function
-		vendor.FinalizeBuy = module.InterceptRepair -- replace Vendors FinalizeBuy with own interceptor
+		vendor.FinalizeBuy = module.Intercept -- replace Vendors FinalizeBuy with own interceptor
 	else
 		log:debug("Module " .. module.MODULE_ID .. " already active, ignoring Activate request")
 	end
@@ -118,8 +117,8 @@ end
 --- Main hook interceptor function.
 -- Called on Vendor's "Purchase" buttonclick / item rightclick.
 -- @tItemData item being "operated on" (purchase, sold, buyback) on the Vendr
-function VendorRepair:InterceptRepair(tItemData)
-	log:debug("InterceptPurchase: enter method")
+function VendorRepair:Intercept(tItemData)
+	log:debug("Intercept: enter method")
 		
 	-- Store item details for easier debugging. Not actually used in application code.
 	module.tItemData = tItemData -- Will be nil for "Repair all" ops
@@ -129,7 +128,7 @@ function VendorRepair:InterceptRepair(tItemData)
 		module = module,
 		hook = module.hook,
 		hookParams = tItemData,
-		hookedAddon = Apollo.GetAddon("Vendor")
+		hookedAddon = vendor
 	}
 
 	--[[
@@ -141,14 +140,14 @@ function VendorRepair:InterceptRepair(tItemData)
 		
 	-- Only check thresholds if this is a repair
 	if not vendor.wndVendor:FindChild("VendorTab3"):IsChecked() then
-		log:debug("InterceptPurchase: Not a repair")
+		log:debug("Intercept: Not a repair")
 		addon:CompletePurchase(tCallbackData)
 		return
 	end
 
 	-- A list of repairable items should exist in tRepariableItems
 	if not vendor.tRepairableItems then
-		log:warn("InterceptPurchase: No repairable items found")
+		log:warn("Intercept: No repairable items found")
 		addon:CompletePurchase(tCallbackData)
 		return
 	end
@@ -160,7 +159,7 @@ function VendorRepair:InterceptRepair(tItemData)
 	-- Check if current currency is in supported-list
 	local tCurrency = addon:GetSupportedCurrencyByEnum(eCurrencyType1)
 	if tCurrency == nil then
-		log:info("InterceptPurchase: Unsupported currentTypes " .. tostring(vendor.tRepairableItems[1].tPriceInfo.eCurrencyType1) .. " and " .. tostring(vendor.tRepairableItems[1].tPriceInfo.eCurrencyType2))
+		log:info("Intercept: Unsupported currentTypes " .. tostring(vendor.tRepairableItems[1].tPriceInfo.eCurrencyType1) .. " and " .. tostring(vendor.tRepairableItems[1].tPriceInfo.eCurrencyType2))
 		addon:CompletePurchase(tCallbackData)
 		return
 	end
@@ -173,7 +172,7 @@ function VendorRepair:InterceptRepair(tItemData)
 	local tPurchaseData = {
 		tCallbackData = tCallbackData,
 		tCurrency = tCurrency,
-		monPrice = module:GetRepairCost(tItemData),
+		monPrice = module:GetPrice(tItemData),
 	}
 		
 	-- Request pricecheck
@@ -182,8 +181,8 @@ end
 
 --- Extracts the repair cost for an item
 -- @param tItemData Current item to repair, as supplied by the Vendor addon
-function VendorRepair:GetRepairCost(tItemData)
-	log:debug("GetRepairCost: enter method")
+function VendorRepair:GetPrice(tItemData)
+	log:debug("GetPrice: enter method")
 		
 	local idLocation = tItemData and tItemData.idLocation or nil
 	if idLocation then
@@ -194,6 +193,8 @@ function VendorRepair:GetRepairCost(tItemData)
 		for _,v in pairs(vendor.tRepairableItems) do
 			total = total + v.itemData:GetRepairCost()
 		end 
+		
+		log:debug("GetPrice: Price extracted: " .. total)
 		return total
 	end
 end

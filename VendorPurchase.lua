@@ -52,10 +52,9 @@ function VendorPurchase:Init()
 		
 	-- Ensures an open confirm dialog is closed when leaving vendor range
 	-- NB: register the event so that it is fired on main addon, not this wrapper
-	-- TODO: Test how this plays out with 2 vendors in close proximity (open both, move away from one)
 	Apollo.RegisterEventHandler("CloseVendorWindow", "OnCancelPurchase", addon)
 	
-	self.xmlDoc = XmlDoc.CreateFromFile("Modules/VendorPurchase.xml")
+	self.xmlDoc = XmlDoc.CreateFromFile("VendorPurchase.xml")
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
 	
 	return self
@@ -89,7 +88,7 @@ function VendorPurchase:Activate()
 	if module.hook == nil then
 		log:info("Activating module: " .. module.MODULE_ID)
 		module.hook = vendor.FinalizeBuy -- store ref to original function
-		vendor.FinalizeBuy = module.InterceptPurchase -- replace Vendors FinalizeBuy with own interceptor
+		vendor.FinalizeBuy = module.Intercept -- replace Vendors FinalizeBuy with own interceptor
 	else
 		log:debug("Module " .. module.MODULE_ID .. " already active, ignoring Activate request")
 	end
@@ -109,8 +108,8 @@ end
 --- Main hook interceptor function.
 -- Called on Vendor's "Purchase" buttonclick / item rightclick.
 -- @tItemData item being "operated on" (purchase, sold, buyback) on the Vendor
-function VendorPurchase:InterceptPurchase(tItemData)
-	log:debug("InterceptPurchase: enter method")
+function VendorPurchase:Intercept(tItemData)
+	log:debug("Intercept: enter method")
 		
 	-- Store item details for easier debugging. Not actually used in application code.
 	module.tItemData = tItemData
@@ -120,7 +119,7 @@ function VendorPurchase:InterceptPurchase(tItemData)
 		module = module,
 		hook = module.hook,
 		hookParams = tItemData,
-		hookedAddon = Apollo.GetAddon("Vendor")
+		hookedAddon = vendor
 	}
 
 	--[[
@@ -132,14 +131,14 @@ function VendorPurchase:InterceptPurchase(tItemData)
 		
 	-- Only check thresholds if this is a purchase (not sales, repairs or buybacks)
 	if not vendor.wndVendor:FindChild("VendorTab0"):IsChecked() then
-		log:debug("InterceptPurchase: Not a purchase")
+		log:debug("Intercept: Not a purchase")
 		addon:CompletePurchase(tCallbackData)
 		return
 	end
 	
 	-- No itemdata on purchase, somehow... "this should never happen"
 	if not tItemData then
-		log:warn("InterceptPurchase: No tItemData")
+		log:warn("Intercept: No tItemData")
 		addon:CompletePurchase(tCallbackData)
 		return
 	end
@@ -147,7 +146,7 @@ function VendorPurchase:InterceptPurchase(tItemData)
 	-- Check if current currency is in supported-list
 	local tCurrency = addon:GetSupportedCurrencyByEnum(tItemData.tPriceInfo.eCurrencyType1)
 	if tCurrency == nil then
-		log:info("InterceptPurchase: Unsupported currentTypes " .. tostring(tItemData.tPriceInfo.eCurrencyType1) .. " and " .. tostring(tItemData.tPriceInfo.eCurrencyType2))
+		log:info("Intercept: Unsupported currentTypes " .. tostring(tItemData.tPriceInfo.eCurrencyType1) .. " and " .. tostring(tItemData.tPriceInfo.eCurrencyType2))
 		addon:CompletePurchase(tCallbackData)
 		return
 	end
@@ -160,7 +159,7 @@ function VendorPurchase:InterceptPurchase(tItemData)
 	local tPurchaseData = {
 		tCallbackData = tCallbackData,
 		tCurrency = tCurrency,
-		monPrice = module:GetItemPrice(tItemData),
+		monPrice = module:GetPrice(tItemData),
 	}
 		
 	-- Request pricecheck
@@ -169,12 +168,12 @@ end
 
 --- Extracts item price from tItemData
 -- @param tItemData Current purchase item data, as supplied by the Vendor addon
-function VendorPurchase:GetItemPrice(tItemData)
-	log:debug("GetItemPrice: enter method")
+function VendorPurchase:GetPrice(tItemData)
+	log:debug("GetPrice: enter method")
 		
 	-- NB: "itemData" is a table property on tItemData. Yeah.
 	local monPrice = tItemData.itemData:GetBuyPrice():Multiply(tItemData.nStackSize):GetAmount()
-	log:debug("GetItemPrice: Item price extracted: " .. monPrice)
+	log:debug("GetPrice: Price extracted: " .. monPrice)
 
 	return monPrice
 end
