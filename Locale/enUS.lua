@@ -52,14 +52,10 @@ L["Module_Enable"] = "Enable Module"
 	
 L["Module_VendorPurchase_Title"] = "Vendor: Purchase"
 L["Module_VendorPurchase_Description"] = "This module intercepts item purchases in the main Vendor-addon. This covers all the regular vendors, such as General Goods vendors, scattered throughout Nexus."
-L["Module_VendorPurchase_DialogHeader"] = "Confirm Purchase"
-L["Module_VendorPurchase_DialogAcceptButton"] = "Purchase"
-
 
 L["Module_VendorRepair_Title"] = "Vendor: Repair"
 L["Module_VendorRepair_Description"] = "This module intercepts single- and all-item repairs performed in the main Vendor-addon. It does not request confirmation for auto-repairs initiated by addon 'JunkIt'."
-L["Module_VendorRepair_DialogHeader"] = "Confirm Repair"
-L["Module_VendorRepair_DialogAcceptButton_Single"] = "Repair"
-L["Module_VendorRepair_DialogAcceptButton_All"] = "Repair All"
 
+L["Module_HousingBuyToCrate_Title"] = "Housing: Buy To Crate"
+L["Module_HousingBuyToCrate_Description"] = "This module intercepts buying housing decor items (to your crate). It does not affect Housing item repair/placement cost, only buying to your crate."
 

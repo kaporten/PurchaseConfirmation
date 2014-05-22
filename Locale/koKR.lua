@@ -52,11 +52,9 @@ L["Module_Enable"] = "모듈 활성화"
 	
 L["Module_VendorPurchase_Title"] = "공급 업체: 매수"
 L["Module_VendorPurchase_Description"] = "주요 벤더 애드온에이 모듈을 차단 항목을 구매. 이 관계에 흩어져 등 일반 제품 공급 업체 등 모든 일반 업체를 다룹니다."
-L["Module_VendorPurchase_DialogHeader"] = "Confirm Purchase"
-L["Module_VendorPurchase_DialogAcceptButton"] = "Purchase"
 
 L["Module_VendorRepair_Title"] = "공급 업체: 수리"
 L["Module_VendorRepair_Description"] = "주요 벤더 애드온에서 수행이 모듈을 차단 단일 및 모든 항목을 수리. 이 애드온 'JunkIt'에 의해 시작 자동 수리에 대한 확인을 요청하지 않습니다."
-L["Module_VendorRepair_DialogHeader"] = "Confirm Repair"
-L["Module_VendorRepair_DialogAcceptButton_Single"] = "Repair"
-L["Module_VendorRepair_DialogAcceptButton_All"] = "Repair All"
+
+L["Module_HousingBuyToCrate_Title"] = "주거 : 나무 상자에 구매"
+L["Module_HousingBuyToCrate_Description"] = "이 (당신의 상자에) 주택 장식 아이템을 구입 모듈을 차단. 그것은 단지 당신의 상자를 구입, 주택 항목을 수리 / 배치 비용에 영향을주지 않습니다."

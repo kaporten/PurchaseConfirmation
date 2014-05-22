@@ -52,11 +52,9 @@ L["Module_Enable"] = "Activer Module"
 
 L["Module_VendorPurchase_Title"] = "Vendeur: Acheter"
 L["Module_VendorPurchase_Description"] = "Cet article intercepte module achats dans le principal vendeur-addon. Cela couvre tous les vendeurs réguliers, tels que les fournisseurs Général Marchandises, dispersés à travers Nexus."
-L["Module_VendorPurchase_DialogHeader"] = "Confirm Purchase"
-L["Module_VendorPurchase_DialogAcceptButton"] = "Purchase"
 
 L["Module_VendorRepair_Title"] = "Vendeur: Réparation"
 L["Module_VendorRepair_Description"] = "Ce module intercepte les réparations simples et tous postes réalisées dans le principal vendeur-addon. Il ne demande pas de confirmation pour l'auto-réparation initiées par addon 'JunkIt."
-L["Module_VendorRepair_DialogHeader"] = "Confirm Repair"
-L["Module_VendorRepair_DialogAcceptButton_Single"] = "Repair"
-L["Module_VendorRepair_DialogAcceptButton_All"] = "Repair All"
+
+L["Module_HousingBuyToCrate_Title"] = "Maison: Acheter Pour caisse"
+L["Module_HousingBuyToCrate_Description"] = "Ce module intercepte l'achat d'articles de décoration du logement (à votre caisse). Il n'affecte pas le logement élément de coût de réparation / placement, que l'achat de votre caisse."

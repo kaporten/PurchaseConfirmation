@@ -13,10 +13,12 @@
     <Script Name="Settings.lua"/>
     <Form Name="Settings.xml"/>
     <!-- Modules -->
-    <Script Name="Modules/VendorPurchase.lua"/>
-    <Form Name="Modules/VendorPurchase.xml"/>
-    <Script Name="Modules/VendorRepair.lua"/>
-    <Form Name="Modules/VendorRepair.xml"/>
+    <Script Name="VendorPurchase.lua"/>
+    <Form Name="VendorPurchase.xml"/>
+    <Script Name="VendorRepair.lua"/>
+    <Form Name="VendorRepair.xml"/>
+    <Script Name="HousingBuyToCrate.lua"/>
+    <Form Name="HousingBuyToCrate.xml"/>
     <!-- Addon itself -->
     <Script Name="PurchaseConfirmation.lua"/>
     <Form Name="PurchaseConfirmation.xml"/>
