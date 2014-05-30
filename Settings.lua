@@ -124,7 +124,7 @@ end
 function Settings:GetVersionString()
 	local str = "v"
 	local first = true
-	for _,v in ipairs(addon:GetVersion()) do
+	for _,v in ipairs(addon.ADDON_VERSION) do
 		if first then 
 			str = str .. v
 			first = false

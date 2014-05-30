@@ -133,8 +133,10 @@ function HousingBuyToCrate:Intercept(wndControl, wndHandler)
 		addon:CompletePurchase(tCallbackData)
 	end
 	
-	-- Store tItemData on module for debugging purposes
-	module.tItemData = tItemData		
+	-- Store purchase details on module for easier debugging
+	if addon.DEBUG_MODE == true then
+		module.tItemData = tItemData
+	end
 	
 	-- Also store on tCallbackData to avoid having to extract from wndControl/handler again
 	tCallbackData.tItemData = tItemData
@@ -163,7 +165,6 @@ function HousingBuyToCrate:Intercept(wndControl, wndHandler)
 end
 
 
-
 --- Provide details for if/when the main-addon decides to show the confirmation dialog.
 -- @param tPurchaseDetails, containing all required info about on-going purchase
 -- @return [1] window to display on the central details-spot on the dialog.
@@ -186,6 +187,3 @@ function HousingBuyToCrate:GetDialogDetails(tPurchaseData)
 	-- Rely on standard "Purchase" text strings on dialog, just return window with preview
 	return wnd
 end
-
-
-

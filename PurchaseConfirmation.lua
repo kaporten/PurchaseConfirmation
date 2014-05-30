@@ -18,18 +18,15 @@ require "Money"
 require "Item"
 
 
--- Development mode settings. Should be false/"ERROR" for release builds.
--- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
-local DEBUG_MODE = false 
-local LOG_LEVEL = "ERROR"
-
-
--- Constants for addon name, version etc.
-local ADDON_NAME = "PurchaseConfirmation"
-local ADDON_VERSION = {3, 0, 0} -- major, minor, bugfix
-
 -- Addon object itself
 local PurchaseConfirmation = {} 
+PurchaseConfirmation.ADDON_VERSION = {3, 0, 1} -- major, minor, bugfix
+
+-- Development mode settings. Should be false/"ERROR" for release builds.
+-- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
+PurchaseConfirmation.DEBUG_MODE = false 
+PurchaseConfirmation.LOG_LEVEL = "ERROR"
+
 
 -- GeminiLogging, configured during initialization
 local log
@@ -53,7 +50,7 @@ end
 function PurchaseConfirmation:Init()
 	local bHasConfigureFunction = true
 	local strConfigureButtonText = "Purchase Conf."
-	local tDependencies = {VENDOR_ADDON_NAME, "Gemini:Logging-1.2",}
+	local tDependencies = {"Vendor", "Gemini:Logging-1.2",}
 	
 	Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
@@ -63,7 +60,7 @@ function PurchaseConfirmation:OnLoad()
 
 	-- GeminiLogger options
 	local opt = {
-		level = LOG_LEVEL,
+		level = self.LOG_LEVEL,
 		pattern = "%d %n %c %l - %m",
 		appender = "GeminiConsole"
 	}
@@ -77,8 +74,8 @@ function PurchaseConfirmation:OnLoad()
 		Supported currencies. Fields:
 			eType = currency enum type used by Apollo API
 			strName = hardcoded name for the currency, to be referenced in saved config (to disconnect from enum ordering)
-			strDescription = description of the currency type
-			wndPanel = handle to settings window panel for this currency, populated by Settings module
+			strDescription = description of the currency type, used in settings tooltip
+			(wndPanel = handle to settings window panel for this currency, populated by Settings module)
 	]]
 	-- Order of elements must match Settings GUI button layout
 	self.seqCurrencies = {																		
@@ -144,19 +141,15 @@ function PurchaseConfirmation:OnDocLoaded()
 	
 	-- Now that the Settings module is loaded, use it to restore previously saved settings
 	self.tSettings = self.settingsModule:RestoreSettings(self.tSavedSettings)
-	self.tSavedData = nil
+	self.tSavedSettings = nil
 	
 	-- Activate modules, as specified in Settings
 	self:UpdateModuleStatus()
 		
 	-- If running debug-mode, warn user (should never make it into production)
-	if DEBUG_MODE == true then
-		Print("Addon '" .. ADDON_NAME .. "' running in debug-mode! Vendor purchases are disabled. Please contact me via Curse if you ever see this, since I probably forgot to disable debug-mode before releasing. For shame :(")
+	if self.DEBUG_MODE == true then
+		Print("Addon 'PurchaseConfirmation' running in debug-mode! Vendor purchases are disabled. Please contact me via Curse if you ever see this, since I probably forgot to disable debug-mode before releasing. For shame :(")
 	end
-end
-
-function PurchaseConfirmation:GetVersion()
-	return ADDON_VERSION
 end
 
 --- Use GeminiLocale to localize static fields on the dialog.
@@ -288,7 +281,7 @@ function PurchaseConfirmation:CompletePurchase(tCallbackData)
 	log:debug("CompletePurchase: enter method")	
 	
 	-- Delegate to supplied hook method, unless debug mode is on
-	if DEBUG_MODE == true then
+	if PurchaseConfirmation.DEBUG_MODE == true then
 		Print("PurchaseConfirmation: DEBUG MODE: - purchase ignored!")
 	else
 		tCallbackData.hook(tCallbackData.hookedAddon, tCallbackData.hookParams)
@@ -485,7 +478,7 @@ function PurchaseConfirmation:OnSave(eType)
 	end
 	
 	-- Add current addon version to settings, for future compatibility/load checks
-	self.tSettings.addonVersion = ADDON_VERSION
+	self.tSettings.addonVersion = self.ADDON_VERSION
 	
 	-- Simply save the entire tSettings structure
 	return self.tSettings

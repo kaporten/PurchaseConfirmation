@@ -111,8 +111,10 @@ end
 function VendorPurchase:Intercept(tItemData)
 	log:debug("Intercept: enter method")
 		
-	-- Store item details for easier debugging. Not actually used in application code.
-	module.tItemData = tItemData
+	-- Store purchase details on module for easier debugging
+	if addon.DEBUG_MODE == true then
+		module.tItemData = tItemData
+	end
 	
 	-- Prepare addon-specific callback data, used if/when the user confirms a purchase
 	local tCallbackData = {
@@ -224,8 +226,3 @@ function VendorPurchase:GetDialogDetails(tPurchaseData)
 
 	return wnd
 end
-
-
-
-
-
