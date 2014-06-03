@@ -172,9 +172,17 @@ end
 -- @param tItemData Current purchase item data, as supplied by the Vendor addon
 function VendorPurchase:GetPrice(tItemData)
 	log:debug("GetPrice: enter method")
-		
-	-- NB: "itemData" is a table property on tItemData. Yeah.
-	local monPrice = tItemData.itemData:GetBuyPrice():Multiply(tItemData.nStackSize):GetAmount()
+	local monPrice = 0
+	
+	if type(tItemData.itemData) == "table" then
+		-- Regular items have a nested "itemData" object with functions for getting price etc.
+		-- If that exist, use it to extract price details since that is how the Vendor module does it
+		monPrice = tItemData.itemData:GetBuyPrice():Multiply(tItemData.nStackSize):GetAmount()
+	elseif type(tItemData.tPriceInfo) == "table" then
+		-- If no nested itemData table exists, just get the "raw" price. Only known case so far: buying the mount speed upgrade.
+		monPrice = tItemData.tPriceInfo.nAmount1		
+	end
+	
 	log:debug("GetPrice: Price extracted: " .. monPrice)
 
 	return monPrice
@@ -208,8 +216,13 @@ function VendorPurchase:GetDialogDetails(tPurchaseData)
 		wnd:FindChild("StackSize"):Show(false, true)
 	end
 	
-	-- Extract item quality
-	local eQuality = tonumber(Item.GetDetailedInfo(tItemData).tPrimary.eQuality)
+	-- Extract item quality	
+	-- Some items (like mount speed upgrade) has no quality. Set default quality to none and override if quality is present
+	local eQuality = #qualityColors
+	local tItemDetailedInfo = Item.GetDetailedInfo(tItemData)
+	if type(tItemDetailedInfo.tPrimary) == "table" then
+		eQuality = tonumber(tItemDetailedInfo.tPrimary.eQuality)
+	end
 
 	-- Add pixie quality-color border to the ItemIcon element
 	local tPixieOverlay = {
