@@ -95,20 +95,11 @@ function Settings:OnDocLoaded()
 		log:debug("OnDocLoaded: Created currency panel for '" .. tostring(tCurrency.strName) .. "' (" .. tostring(tCurrency.eType) .. ")")
 	end
 	
-	-- Load Modules and Line form
-	self.wndModules = Apollo.LoadForm(self.xmlDoc, "ModulesForm", nil, self)
-	if self.wndModules == nil then
-		Apollo.AddAddonErrorText(self, "Could not load the ModulesForm window")
-		log:error("Error loading Settings Module form")
-		return
-	end	
-	self:LocalizeModulesWindow(self.wndModules)
-	self.wndModules:Show(false, true)
-	
 	-- Add module line to module-config window, for each available module. 
+	self.wndSettings:FindChild("ModulesPopout"):Show(false, true)
 	for _,m in pairs(addon.modules) do
 		log:info("Loading form for module " .. m.MODULE_ID)
-		local wnd = Apollo.LoadForm(self.xmlDoc, "ModulesLineForm", self.wndModules:FindChild("ModuleListArea"), self)
+		local wnd = Apollo.LoadForm(self.xmlDoc, "ModulesLineForm", self.wndSettings:FindChild("ModulesContainer"), self)
 		if wnd == nil then
 			Apollo.AddAddonErrorText(self, "Could not load the ModulesFormLine window")
 			log:error("Error loading Settings Module-line form")
@@ -117,8 +108,10 @@ function Settings:OnDocLoaded()
 		self:LocalizeModuleEntry(wnd, m)
 		wnd:SetData(m.MODULE_ID)
 	end
+	self.wndSettings:FindChild("ModulesContainer"):ArrangeChildrenVert()
 
 	self.xmlDoc = nil
+	log:info("Settings forms loaded")
 end
 
 function Settings:GetVersionString()
@@ -135,9 +128,6 @@ function Settings:GetVersionString()
 	return str
 end
 
-function Settings:LocalizeModulesWindow(wnd)
-	wnd:FindChild("WindowTitle"):SetText(locale["Modules_WindowTitle"])
-end
 
 function Settings:LocalizeModuleEntry(wnd, m)
 	-- m.strTitle + m.strDescription are prelocalized during module initialization
@@ -151,6 +141,8 @@ function Settings:LocalizeSettings(wnd)
 
 	wnd:FindChild("WindowTitle"):SetText(L["Settings_WindowTitle"])
 	wnd:FindChild("BalanceLabel"):SetText(L["Settings_Balance"])
+	
+	wnd:FindChild("ModulesPopoutTitle"):SetText(locale["Modules_WindowTitle"])
 end
 
 --- Localize an individual settings tab
@@ -230,7 +222,7 @@ function Settings:PopulateSettingsWindowForCurrency(wndCurrencyControl, tSetting
 end
 
 function Settings:PopulateModules()
-	for _,m in ipairs(self.wndModules:FindChild("ModuleListArea"):GetChildren()) do
+	for _,m in ipairs(self.wndSettings:FindChild("ModulesContainer"):GetChildren()) do
 		log:info("Populating module")
 		m:FindChild("EnableButton"):SetCheck(addon.tSettings.Modules[m:GetData()].bEnabled) -- GetData == moduleId
 	end
@@ -428,14 +420,12 @@ function Settings:OnCancelSettings()
 	-- Hide settings window, without saving any entered values. 
 	-- Settings GUI will revert to old values on next OnConfigure
 	self.wndSettings:Show(false, true)	
-	self.wndModules:Show(false, true)
 end
 
 -- Extracts settings fields one by one, and updates tSettings accordingly.
 function Settings:OnAcceptSettings()
 	-- Hide settings window
 	self.wndSettings:Show(false, true)
-	self.wndModules:Show(false, true)
 	
 	-- For all currencies, extract UI values into settings
 	for _,v in ipairs(addon.seqCurrencies) do
@@ -454,7 +444,7 @@ end
 function Settings:AcceptSettingsForModule(moduleId)	
 	-- The Settings->ModuleLineForm window instance should have had 
 	-- the moduleId set as userdata during load
-	local wnd = self.wndModules:FindChildByUserData(moduleId)
+	local wnd = self.wndSettings:FindChild("ModulesContainer"):FindChildByUserData(moduleId)
 	
 	if wnd == nil then
 		log:error("Could not find settings for module " .. moduleId .. " (specific module not found)")
@@ -607,12 +597,12 @@ function Settings:OnCurrencySelection(wndHandler, wndControl)
 	self:UpdateBalance()
 end
 
---- 
+--- Shows the Modules popout
 function Settings:OnShowModules(wndHandler, wndControl, eMouseButton)
--- TODO: position to the right of settings wnd
-	self.wndModules:FindChild("ModuleListArea"):ArrangeChildrenVert()
-	self.wndModules:Show(not self.wndModules:IsVisible(), true)
-	self.wndModules:ToFront()
+	local wndModules = self.wndSettings:FindChild("ModulesPopout")
+	wndModules:Show(not wndModules:IsVisible(), true)
+	wndModules:ToFront()
+	log:debug("Toggled modules popout")
 end
 
 

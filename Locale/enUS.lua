@@ -46,7 +46,7 @@ L["Settings_Modules_Button"] = "Modules"
 
 	--[[ MODULES ]]
 	
-L["Modules_WindowTitle"] = "PurchaseConfirmation Modules"
+L["Modules_WindowTitle"] = "Modules"
 
 L["Module_Enable"] = "Enable Module"
 	

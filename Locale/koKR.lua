@@ -46,7 +46,7 @@ L["Settings_Modules_Button"] = "모듈"
 
 	--[[ MODULES ]]
 
-L["Modules_WindowTitle"] = "구매 확인 모듈"
+L["Modules_WindowTitle"] = "모듈"
 
 L["Module_Enable"] = "모듈 활성화"
 	
