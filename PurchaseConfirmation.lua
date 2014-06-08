@@ -20,7 +20,7 @@ require "Item"
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
-PurchaseConfirmation.ADDON_VERSION = {3, 1, 1} -- major, minor, bugfix
+PurchaseConfirmation.ADDON_VERSION = {4, 0, 0} -- major, minor, bugfix
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
@@ -50,7 +50,7 @@ end
 function PurchaseConfirmation:Init()
 	local bHasConfigureFunction = true
 	local strConfigureButtonText = "Purchase Conf."
-	local tDependencies = {"Vendor", "Gemini:Logging-1.2",}
+	local tDependencies = {}
 	
 	Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
@@ -91,6 +91,7 @@ function PurchaseConfirmation:OnLoad()
 		"PurchaseConfirmation:VendorPurchase",
 		"PurchaseConfirmation:VendorRepair",
 		"PurchaseConfirmation:HousingBuyToCrate",
+		"PurchaseConfirmation:SpaceStashBankSlot",
 	}
 			
 	-- Load the XML file and await callback
@@ -129,10 +130,20 @@ function PurchaseConfirmation:OnDocLoaded()
 		Conversely, the Settings module rely on modules being fully loaded, before being loaded itself.
 	]]
 				
-	-- Load real modules.
+	-- Load real modules. Always try to load/initialize all modules, regardless of previous failures.
 	self.modules = {}
 	for _,v in pairs(self.moduleNames) do
-		self.modules[v] = Apollo.GetPackage(v).tPackage:new():Init()
+		-- It is assumed modules do not fail during :new and global init (localization), 
+		-- since such errors would be constant and should be weeded out during dev.
+		-- TODO: move that stuff into module.Init() just in case.
+		local module = Apollo.GetPackage(v).tPackage:new()
+		local bModuleStatus, strFailureMessage = pcall(module.Init, module)
+		
+		-- Store load-status directly on module, for later use during activation
+		module.bFailed = not bModuleStatus
+		module.strFailureMessage = strFailureMessage 
+
+		self.modules[v] = module
 	end
 	
 	-- Load Settings like it is  a module, even though it is not treated as a module from here-on out
@@ -316,7 +327,7 @@ end
 function PurchaseConfirmation:GetEmptyCoffersThreshold(tCurrencySettings, tCurrency)
 	local monCurrentPlayerCash = GameLib.GetPlayerCurrency(tCurrency.eType):GetAmount()
 	local threshold = math.floor(monCurrentPlayerCash * (tCurrencySettings.tEmptyCoffers.nPercent/100))
-	log:debug("GetEmptyCoffersThreshold: Empty coffers threshold calculated for " .. tCurrency.strName .. ": " .. tostring(tCurrencySettings.tEmptyCoffers.nPercent) .. "% of " .. tostring(monCurrentPlayerCash) .. " = " .. tostring(threshold))	
+	log:debug("GetEmptyCoffersThreshold: Empty coffers threshold calculated for " .. tCurrency.strName .. ": " .. tostring(tCurrencySettings.tEmptyCoffers.nPercent) .. " percent of " .. tostring(monCurrentPlayerCash) .. " = " .. tostring(threshold))
 	return threshold
 end
 
@@ -398,10 +409,13 @@ end
 --- Activates or deactivates individual modules, as specified in settings.
 function PurchaseConfirmation:UpdateModuleStatus()
 	for _,module in pairs(self.modules) do
-		if self.tSettings.Modules[module.MODULE_ID].bEnabled == true then
-			module:Activate()
-		else
-			module:Deactivate()
+		-- Only toggle status for non-failed modules
+		if module.bFailed == false then 
+			if self.tSettings.Modules[module.MODULE_ID].bEnabled == true then
+				module:Activate()
+			else
+				module:Deactivate()
+			end
 		end
 	end
 end

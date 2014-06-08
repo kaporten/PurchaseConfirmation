@@ -58,3 +58,6 @@ L["Module_VendorRepair_Description"] = "주요 벤더 애드온에서 수행이 
 
 L["Module_HousingBuyToCrate_Title"] = "주거 : 나무 상자에 구매"
 L["Module_HousingBuyToCrate_Description"] = "이 (당신의 상자에) 주택 장식 아이템을 구입 모듈을 차단. 그것은 단지 당신의 상자를 구입, 주택 항목을 수리 / 배치 비용에 영향을주지 않습니다."
+
+L["Module_SpaceStashBankSlot_Title"] = "SpaceStash: 구입 은행 슬롯"
+L["Module_SpaceStashBankSlot_Description"] = "당신이 SpaceStash 애드온을 사용하는 경우,이 은행 슬롯 구매를 차단합니다."

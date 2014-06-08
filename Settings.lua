@@ -224,7 +224,14 @@ end
 function Settings:PopulateModules()
 	for _,m in ipairs(self.wndSettings:FindChild("ModulesContainer"):GetChildren()) do
 		log:info("Populating module")
-		m:FindChild("EnableButton"):SetCheck(addon.tSettings.Modules[m:GetData()].bEnabled) -- GetData == moduleId
+		
+		if addon.modules[m:GetData()].bFailed == true then			
+			m:FindChild("EnableButton"):Enable(false)
+			m:FindChild("FailureNotification"):Show(true)
+			m:SetTooltip("Module failed to properly load, and cannot be used. \n\nPerhaps you are missing a required Addon?") -- TODO: localization
+		else
+			m:FindChild("EnableButton"):SetCheck(addon.tSettings.Modules[m:GetData()].bEnabled) -- GetData == moduleId
+		end
 	end
 end
 

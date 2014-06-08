@@ -19,6 +19,8 @@
     <Form Name="VendorRepair.xml"/>
     <Script Name="HousingBuyToCrate.lua"/>
     <Form Name="HousingBuyToCrate.xml"/>
+    <Script Name="SpaceStashBankSlot.lua"/>
+    <Form Name="SpaceStashBankSlot.xml"/>
     <!-- Addon itself -->
     <Script Name="PurchaseConfirmation.lua"/>
     <Form Name="PurchaseConfirmation.xml"/>

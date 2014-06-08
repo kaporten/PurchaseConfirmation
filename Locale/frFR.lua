@@ -58,3 +58,6 @@ L["Module_VendorRepair_Description"] = "Ce module intercepte les réparations si
 
 L["Module_HousingBuyToCrate_Title"] = "Maison: Acheter Pour caisse"
 L["Module_HousingBuyToCrate_Description"] = "Ce module intercepte l'achat d'articles de décoration du logement (à votre caisse). Il n'affecte pas le logement élément de coût de réparation / placement, que l'achat de votre caisse."
+
+L["Module_SpaceStashBankSlot_Title"] = "SpaceStash: Fente Acheter Banque"
+L["Module_SpaceStashBankSlot_Description"] = "Si vous utilisez l'addon SpaceStash, ce sera intercepter achats banque-sous."

@@ -58,3 +58,6 @@ L["Module_VendorRepair_Description"] = "Dieses Modul Abschnitte ein-und all-Arti
 
 L["Module_HousingBuyToCrate_Title"] = "Gehäuse: Um Kiste kaufen"
 L["Module_HousingBuyToCrate_Description"] = "Dieses Modul fängt Kauf Gehäuse Kultur Elemente (um Ihre Kiste). Es hat keinen Einfluss Housing Artikel Reparatur / Platzierungskosten, nur den Kauf, um Ihre Kiste."
+
+L["Module_SpaceStashBankSlot_Title"] = "SpaceStash: Kaufen Bank-Slot"
+L["Module_SpaceStashBankSlot_Description"] = "Wenn Sie das Addon SpaceStash sind, wird diese Bank-Slot-Käufe abzufangen."

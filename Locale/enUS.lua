@@ -59,3 +59,5 @@ L["Module_VendorRepair_Description"] = "This module intercepts single- and all-i
 L["Module_HousingBuyToCrate_Title"] = "Housing: Buy To Crate"
 L["Module_HousingBuyToCrate_Description"] = "This module intercepts buying housing decor items (to your crate). It does not affect Housing item repair/placement cost, only buying to your crate."
 
+L["Module_SpaceStashBankSlot_Title"] = "SpaceStash: Buy Bank Slot"
+L["Module_SpaceStashBankSlot_Description"] = "If you're using the SpaceStash addon, this will intercept bank-slot purchases."
