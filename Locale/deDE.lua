@@ -49,6 +49,7 @@ L["Settings_Modules_Button"] = "Module"
 L["Modules_WindowTitle"] = "Module"
 
 L["Module_Enable"] = "Aktivieren Modul"
+L["Module_Failed_Tooltip"] = "Modul nicht ordnungsgemäß geladen, und kann nicht verwendet werden. Vielleicht sind Sie fehlt eine erforderliche Addon?"
 	
 L["Module_VendorPurchase_Title"] = "Verkäufer: Kauf"
 L["Module_VendorPurchase_Description"] = "Dieses Modul fängt Artikel Einkäufe in der Haupt-Verkäufer-Addon. Dies umfasst alle regulären Hersteller, wie zB allgemeine Ware-Anbieter, während Nexus verstreut."
@@ -61,3 +62,6 @@ L["Module_HousingBuyToCrate_Description"] = "Dieses Modul fängt Kauf Gehäuse K
 
 L["Module_SpaceStashBankSlot_Title"] = "SpaceStash: Kaufen Bank-Slot"
 L["Module_SpaceStashBankSlot_Description"] = "Wenn Sie das Addon SpaceStash sind, wird diese Bank-Slot-Käufe abzufangen."
+
+L["Module_LilVendorPurchase_Title"] = "LilVendor: Kauf"
+L["Module_LilVendorPurchase_Description"] = "Wenn Sie das Addon LilVendor sind, wird diese Käufe abzufangen. Gleiche wie für die Lager-Verkauf-Addon, mit Ausnahme der Ersatz LilVendor Addon."

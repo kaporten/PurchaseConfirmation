@@ -49,6 +49,7 @@ L["Settings_Modules_Button"] = "모듈"
 L["Modules_WindowTitle"] = "모듈"
 
 L["Module_Enable"] = "모듈 활성화"
+L["Module_Failed_Tooltip"] = "모듈이 제대로로드 할 수 없습니다, ​​및 사용할 수 없습니다. 아마 당신은 필요한 애드온을 누락?"
 	
 L["Module_VendorPurchase_Title"] = "공급 업체: 매수"
 L["Module_VendorPurchase_Description"] = "주요 벤더 애드온에이 모듈을 차단 항목을 구매. 이 관계에 흩어져 등 일반 제품 공급 업체 등 모든 일반 업체를 다룹니다."
@@ -61,3 +62,6 @@ L["Module_HousingBuyToCrate_Description"] = "이 (당신의 상자에) 주택 �
 
 L["Module_SpaceStashBankSlot_Title"] = "SpaceStash: 구입 은행 슬롯"
 L["Module_SpaceStashBankSlot_Description"] = "당신이 SpaceStash 애드온을 사용하는 경우,이 은행 슬롯 구매를 차단합니다."
+
+L["Module_LilVendorPurchase_Title"] = "LilVendor: 매수"
+L["Module_LilVendorPurchase_Description"] = "당신이 LilVendor 애드온을 사용하는 경우,이 구매를 차단합니다.LilVendor 교체 애드온을 제외하고 주식 공급 업체 애드온,와 동일."

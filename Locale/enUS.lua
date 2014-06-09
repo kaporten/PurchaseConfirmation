@@ -49,6 +49,7 @@ L["Settings_Modules_Button"] = "Modules"
 L["Modules_WindowTitle"] = "Modules"
 
 L["Module_Enable"] = "Enable Module"
+L["Module_Failed_Tooltip"] = "Module failed to properly load, and cannot be used. Perhaps you are missing a required Addon?"
 	
 L["Module_VendorPurchase_Title"] = "Vendor: Purchase"
 L["Module_VendorPurchase_Description"] = "This module intercepts item purchases in the main Vendor-addon. This covers all the regular vendors, such as General Goods vendors, scattered throughout Nexus."
@@ -61,3 +62,6 @@ L["Module_HousingBuyToCrate_Description"] = "This module intercepts buying housi
 
 L["Module_SpaceStashBankSlot_Title"] = "SpaceStash: Buy Bank Slot"
 L["Module_SpaceStashBankSlot_Description"] = "If you're using the SpaceStash addon, this will intercept bank-slot purchases."
+
+L["Module_LilVendorPurchase_Title"] = "LilVendor: Purchase"
+L["Module_LilVendorPurchase_Description"] = "If you're using the LilVendor addon, this will intercept purchases. Same as for the stock Vendor addon, except for the LilVendor replacement addon."

@@ -49,6 +49,7 @@ L["Settings_Modules_Button"] = "Modules!"
 L["Modules_WindowTitle"] = "Modules"
 
 L["Module_Enable"] = "Activer Module"
+L["Module_Failed_Tooltip"] = "Module n'a pas été chargé correctement, et ne peut pas être utilisé. Peut-être vous manque un addon requis?"
 
 L["Module_VendorPurchase_Title"] = "Vendeur: Acheter"
 L["Module_VendorPurchase_Description"] = "Cet article intercepte module achats dans le principal vendeur-addon. Cela couvre tous les vendeurs réguliers, tels que les fournisseurs Général Marchandises, dispersés à travers Nexus."
@@ -61,3 +62,6 @@ L["Module_HousingBuyToCrate_Description"] = "Ce module intercepte l'achat d'arti
 
 L["Module_SpaceStashBankSlot_Title"] = "SpaceStash: Fente Acheter Banque"
 L["Module_SpaceStashBankSlot_Description"] = "Si vous utilisez l'addon SpaceStash, ce sera intercepter achats banque-sous."
+
+L["Module_LilVendorPurchase_Title"] = "LilVendor: Acheter"
+L["Module_LilVendorPurchase_Description"] = "Si vous utilisez l'addon LilVendor, ce sera intercepter achats. Même que pour l'addon stock du fournisseur, sauf pour le remplacement addon LilVendor."

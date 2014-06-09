@@ -94,10 +94,19 @@ function Settings:OnDocLoaded()
 		tCurrency.wndPanel:FindChild("PunySection"):FindChild("Amount"):SetMoneySystem(tCurrency.eType)
 		log:debug("OnDocLoaded: Created currency panel for '" .. tostring(tCurrency.strName) .. "' (" .. tostring(tCurrency.eType) .. ")")
 	end
-	
-	-- Add module line to module-config window, for each available module. 
-	self.wndSettings:FindChild("ModulesPopout"):Show(false, true)
+
+	-- Build indexed list of modules
+	log:debug("Sorting modules")
+	local sortedModules = {}	
 	for _,m in pairs(addon.modules) do
+		table.insert(sortedModules, m)
+	end
+	table.sort(sortedModules, compareModules)
+	log:debug("Modules sorted")
+		
+	-- Add module line to module-config window, for each available module. 	
+	self.wndSettings:FindChild("ModulesPopout"):Show(false, true)
+	for _,m in ipairs(sortedModules) do
 		log:info("Loading form for module " .. m.MODULE_ID)
 		local wnd = Apollo.LoadForm(self.xmlDoc, "ModulesLineForm", self.wndSettings:FindChild("ModulesContainer"), self)
 		if wnd == nil then
@@ -113,6 +122,14 @@ function Settings:OnDocLoaded()
 	self.xmlDoc = nil
 	log:info("Settings forms loaded")
 end
+
+function compareModules(a,b)
+	if a.bFailed == false and b.bFailed == true then return true end
+	if a.bFailed == true and b.bFailed == false then return false end
+	return a.MODULE_ID < b.MODULE_ID
+end
+
+
 
 function Settings:GetVersionString()
 	local str = "v"
@@ -224,13 +241,16 @@ end
 function Settings:PopulateModules()
 	for _,m in ipairs(self.wndSettings:FindChild("ModulesContainer"):GetChildren()) do
 		log:info("Populating module")
+		m:FindChild("EnableButton"):SetCheck(addon.tSettings.Modules[m:GetData()].bEnabled) -- GetData == moduleId
 		
-		if addon.modules[m:GetData()].bFailed == true then			
-			m:FindChild("EnableButton"):Enable(false)
-			m:FindChild("FailureNotification"):Show(true)
-			m:SetTooltip("Module failed to properly load, and cannot be used. \n\nPerhaps you are missing a required Addon?") -- TODO: localization
+		-- Set checkbox state and module tooltip according to module failure status
+		local bFailed = addon.modules[m:GetData()].bFailed		
+		m:FindChild("EnableButton"):Enable(not bFailed)
+		m:FindChild("FailureNotification"):Show(bFailed)		
+		if bFailed == true then			
+			m:SetTooltip(locale["Module_Failed_Tooltip"])
 		else
-			m:FindChild("EnableButton"):SetCheck(addon.tSettings.Modules[m:GetData()].bEnabled) -- GetData == moduleId
+			m:SetTooltip("")
 		end
 	end
 end
