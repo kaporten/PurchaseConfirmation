@@ -38,7 +38,7 @@ function SpaceStashBankSlot:Init()
 	spacestash = Apollo.GetAddon("SpaceStashBank")
 	
 	if spacestash == nil then
-		error("SpaceStash addon not installed")
+		error("Addon SpaceStashBank not installed")
 	end
 			
 	-- Ensures an open confirm dialog is closed when leaving vendor range

@@ -49,6 +49,10 @@ function HousingBuyToCrate:Init()
 	module = self -- Current module
 	log = addon.log
 	housing = Apollo.GetAddon("Housing") -- real Housing to hook
+	
+	if housing == nil then
+		error("Addon Housing not installed")
+	end
 		
 	-- Ensures an open confirm dialog is closed when leaving Housing vendor range
 	-- NB: register the event so that it is fired on main addon, not this wrapper

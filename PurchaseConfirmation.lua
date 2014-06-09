@@ -20,7 +20,7 @@ require "Item"
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
-PurchaseConfirmation.ADDON_VERSION = {4, 0, 0} -- major, minor, bugfix
+PurchaseConfirmation.ADDON_VERSION = {4, 0, 1} -- major, minor, bugfix
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
@@ -143,6 +143,10 @@ function PurchaseConfirmation:OnDocLoaded()
 		module.bFailed = not bModuleStatus
 		module.strFailureMessage = strFailureMessage 
 
+		if module.bFailed == true then
+			log:warn("Error during initialization of module " .. module.MODULE_ID .. ". Error message:\n" .. strFailureMessage)
+		end
+		
 		self.modules[v] = module
 	end
 	
@@ -411,10 +415,21 @@ function PurchaseConfirmation:UpdateModuleStatus()
 	for _,module in pairs(self.modules) do
 		-- Only toggle status for non-failed modules
 		if module.bFailed == false then 
+			local bModuleStatus, strFailureMessage
+			
+			-- Call Activate and Deactivate as protected functions
 			if self.tSettings.Modules[module.MODULE_ID].bEnabled == true then
-				module:Activate()
+				bModuleStatus, strFailureMessage = pcall(module.Activate, module)
 			else
-				module:Deactivate()
+				bModuleStatus, strFailureMessage = pcall(module.Deactivate, module)
+			end			
+			
+			-- Update status in case of errors
+			module.bFailed = not bModuleStatus
+			module.strFailureMessage = strFailureMessage
+			
+			if module.bFailed == true then
+				log:warn("Error during activation/deactivation of module " .. module.MODULE_ID .. ". Error message:\n" .. strFailureMessage)
 			end
 		end
 	end
