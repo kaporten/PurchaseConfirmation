@@ -38,7 +38,7 @@ function SpaceStashBankSlot:Init()
 	spacestash = Apollo.GetAddon("SpaceStashBank")
 	
 	-- Dependency check on required addon
-	if vendor == nil then
+	if spacestash == nil then
 		self.strFailureMessage = string.format(locale["Module_Failure_Addon_Missing"], "SpaceStashBank")
 		error(self.strFailureMessage)
 	end	

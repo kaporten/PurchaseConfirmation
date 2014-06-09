@@ -51,7 +51,7 @@ function HousingBuyToCrate:Init()
 	housing = Apollo.GetAddon("Housing") -- real Housing to hook
 	
 	-- Dependency check on required addon
-	if vendor == nil then
+	if housing == nil then
 		self.strFailureMessage = string.format(locale["Module_Failure_Addon_Missing"], "Housing")
 		error(self.strFailureMessage)
 	end	
