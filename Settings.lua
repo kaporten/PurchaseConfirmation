@@ -245,7 +245,14 @@ function Settings:PopulateModules()
 		
 		-- Set checkbox state and module tooltip according to module failure status
 		local bFailed = addon.modules[m:GetData()].bFailed		
-		m:FindChild("EnableButton"):Enable(not bFailed)
+		m:FindChild("EnableButton"):Show(not bFailed)
+		
+		-- "FailureEnableButton" is a dummy enable button, always disabled, never checked. 
+		-- It is only used to mask the "real" enable button, since that will lose its checked-status 
+		-- if disabled. So that is just hidden, not disabled.
+		m:FindChild("FailureEnableButton"):Show(bFailed)
+		m:FindChild("FailureEnableButton"):Enable(false)
+
 		m:FindChild("FailureNotification"):Show(bFailed)		
 		if bFailed == true then			
 			m:SetTooltip(locale["Module_Failed_Tooltip"])
