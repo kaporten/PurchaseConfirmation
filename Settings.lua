@@ -9,16 +9,14 @@ require "Window"
 local locale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
 
 -- Register module as package
-local Settings = {
-	MODULE_ID = "PurchaseConfirmation:Settings"
-}
-Apollo.RegisterPackage(Settings, Settings.MODULE_ID, 1, {"PurchaseConfirmation"})
+local Settings = {}
+Apollo.RegisterPackage(Settings, "PurchaseConfirmation:Settings", 1, {"PurchaseConfirmation"})
 
 -- "glocals" set during Init
 local log
 
 --- Standard Lua prototype class definition
-function Settings:new(o)
+function Settings:new(o)	
 	o = o or {}
 	setmetatable(o, self)
 	self.__index = self 
@@ -30,7 +28,6 @@ end
 function Settings:Init()
 	addon = Apollo.GetAddon("PurchaseConfirmation") -- main addon, calling the shots
 	log = addon.log
-	module = self
 			
 	-- Slash commands to manually open the settings window
 	Apollo.RegisterSlashCommand("purchaseconfirmation", "OnConfigure", self)
@@ -44,6 +41,8 @@ end
 
 --- Called when XML document is fully loaded, ready to produce forms.
 function Settings:OnDocLoaded()	
+	log:info("Loading Settings GUI")
+	
 	-- Check that XML document is properly loaded
 	if self.xmlDoc == nil or not self.xmlDoc:IsLoaded() then
 		Apollo.AddAddonErrorText(self, "XML document was not loaded")
@@ -96,13 +95,21 @@ function Settings:OnDocLoaded()
 	end
 
 	-- Build indexed list of modules
-	log:debug("Sorting modules")
+	log:debug("Sorting modules according to status and name")
 	local sortedModules = {}	
 	for _,m in pairs(addon.modules) do
 		table.insert(sortedModules, m)
 	end
-	table.sort(sortedModules, compareModules)
-	log:debug("Modules sorted")
+	
+	-- Sort indexed list of modules as ok>failed,name
+	table.sort(sortedModules, 
+		function(a, b)
+			if a.bFailed == false and b.bFailed == true then return true end
+			if a.bFailed == true and b.bFailed == false then return false end
+			return a.MODULE_ID < b.MODULE_ID
+		end
+	)
+	log:debug("Sorted list of modules ready")
 		
 	-- Add module line to module-config window, for each available module. 	
 	self.wndSettings:FindChild("ModulesPopout"):Show(false, true)
@@ -120,17 +127,11 @@ function Settings:OnDocLoaded()
 	self.wndSettings:FindChild("ModulesContainer"):ArrangeChildrenVert()
 
 	self.xmlDoc = nil
-	log:info("Settings forms loaded")
-end
-
-function compareModules(a,b)
-	if a.bFailed == false and b.bFailed == true then return true end
-	if a.bFailed == true and b.bFailed == false then return false end
-	return a.MODULE_ID < b.MODULE_ID
+	log:info("Settings GUI loaded successfully")
 end
 
 
-
+--- Converts the addons {minor, major, bugfix} version array to a .-seperated String
 function Settings:GetVersionString()
 	local str = "v"
 	local first = true
@@ -239,25 +240,26 @@ function Settings:PopulateSettingsWindowForCurrency(wndCurrencyControl, tSetting
 end
 
 function Settings:PopulateModules()
-	for _,m in ipairs(self.wndSettings:FindChild("ModulesContainer"):GetChildren()) do
-		log:info("Populating module")
-		m:FindChild("EnableButton"):SetCheck(addon.tSettings.Modules[m:GetData()].bEnabled) -- GetData == moduleId
+	for _,wndModule in ipairs(self.wndSettings:FindChild("ModulesContainer"):GetChildren()) do
+		local moduleId = wndModule:GetData()
+		log:info("Populating module " .. moduleId)
 		
-		-- Set checkbox state and module tooltip according to module failure status
-		local bFailed = addon.modules[m:GetData()].bFailed		
-		m:FindChild("EnableButton"):Show(not bFailed)
+		-- Set EnableButton state as defined in settings
+		wndModule:FindChild("EnableButton"):SetCheck(addon.tSettings.Modules[moduleId].bEnabled) -- GetData == moduleId
 		
-		-- "FailureEnableButton" is a dummy enable button, always disabled, never checked. 
-		-- It is only used to mask the "real" enable button, since that will lose its checked-status 
-		-- if disabled. So that is just hidden, not disabled.
-		m:FindChild("FailureEnableButton"):Show(bFailed)
-		m:FindChild("FailureEnableButton"):Enable(false)
-
-		m:FindChild("FailureNotification"):Show(bFailed)		
+		-- Show or hide EnableButton / Failure-cross as according to module failure state
+		local module = addon.modules[moduleId]
+		local bFailed = module.bFailed	
+		wndModule:FindChild("EnableButton"):Show(not bFailed)
+		wndModule:FindChild("FailureNotification"):Show(bFailed)		
+		
+		log:debug("setting tooltip")
+		
+		-- Set failure tooltip if module failed
 		if bFailed == true then			
-			m:SetTooltip(locale["Module_Failed_Tooltip"])
+			wndModule:SetTooltip(module.strFailureMessage)
 		else
-			m:SetTooltip("")
+			wndModule:SetTooltip("")
 		end
 	end
 end

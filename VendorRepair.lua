@@ -50,8 +50,10 @@ function VendorRepair:Init()
 	log = addon.log
 	vendor = Apollo.GetAddon("Vendor") -- real Vendor to hook
 
+	-- Dependency check on required addon
 	if vendor == nil then
-		error("Addon Vendor not installed")
+		self.strFailureMessage = string.format(locale["Module_Failure_Addon_Missing"], "Vendor")
+		error(self.strFailureMessage)
 	end	
 			
 	-- Ensures an open confirm dialog is closed when leaving vendor range

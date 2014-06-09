@@ -37,9 +37,11 @@ function SpaceStashBankSlot:Init()
 	log = addon.log
 	spacestash = Apollo.GetAddon("SpaceStashBank")
 	
-	if spacestash == nil then
-		error("Addon SpaceStashBank not installed")
-	end
+	-- Dependency check on required addon
+	if vendor == nil then
+		self.strFailureMessage = string.format(locale["Module_Failure_Addon_Missing"], "SpaceStashBank")
+		error(self.strFailureMessage)
+	end	
 			
 	-- Ensures an open confirm dialog is closed when leaving vendor range
 	-- NB: register the event so that it is fired on main addon, not this wrapper

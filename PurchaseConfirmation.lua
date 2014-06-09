@@ -20,7 +20,7 @@ require "Item"
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
-PurchaseConfirmation.ADDON_VERSION = {5, 0, 1} -- major, minor, bugfix
+PurchaseConfirmation.ADDON_VERSION = {5, 0, 2} -- major, minor, bugfix
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
@@ -142,10 +142,14 @@ function PurchaseConfirmation:OnDocLoaded()
 		
 		-- Store load-status directly on module, for later use during activation
 		module.bFailed = not bModuleStatus
-		module.strFailureMessage = strFailureMessage 
+		
+		-- Allow modules to produce a "neat" error message themselves, otherwise use the pcall error msg
+		if module.strFailureMessage == nil then
+			module.strFailureMessage = strFailureMessage 
+		end
 
 		if module.bFailed == true then
-			log:warn("Error during initialization of module " .. module.MODULE_ID .. ". Error message:\n" .. strFailureMessage)
+			log:warn("Error during initialization of module " .. module.MODULE_ID .. ". Error message: " .. module.strFailureMessage)
 		end
 		
 		self.modules[v] = module

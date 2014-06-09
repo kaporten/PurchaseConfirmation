@@ -49,7 +49,7 @@ L["Settings_Modules_Button"] = "Modules"
 L["Modules_WindowTitle"] = "Modules"
 
 L["Module_Enable"] = "Enable Module"
-L["Module_Failed_Tooltip"] = "Module failed to properly load, and cannot be used. Perhaps you are missing a required Addon?"
+L["Module_Failure_Addon_Missing"] = "Required addon %q not found."
 	
 L["Module_VendorPurchase_Title"] = "Vendor: Purchase"
 L["Module_VendorPurchase_Description"] = "This module intercepts item purchases in the main Vendor-addon. This covers all the regular vendors, such as General Goods vendors, scattered throughout Nexus."

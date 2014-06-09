@@ -49,7 +49,7 @@ L["Settings_Modules_Button"] = "Module"
 L["Modules_WindowTitle"] = "Module"
 
 L["Module_Enable"] = "Aktivieren Modul"
-L["Module_Failed_Tooltip"] = "Modul nicht ordnungsgemäß geladen, und kann nicht verwendet werden. Vielleicht sind Sie fehlt eine erforderliche Addon?"
+L["Module_Failure_Addon_Missing"] = "Erforderliche Addon %q nicht gefunden."
 	
 L["Module_VendorPurchase_Title"] = "Verkäufer: Kauf"
 L["Module_VendorPurchase_Description"] = "Dieses Modul fängt Artikel Einkäufe in der Haupt-Verkäufer-Addon. Dies umfasst alle regulären Hersteller, wie zB allgemeine Ware-Anbieter, während Nexus verstreut."
