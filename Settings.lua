@@ -190,7 +190,7 @@ function Settings:OnConfigure()
 	self:UpdateBalance()
 	self:PopulateModules()
 
-	self.wndSettings:Show(true, true)
+	self.wndSettings:Show(true, false)
 	self.wndSettings:ToFront()
 end
 
