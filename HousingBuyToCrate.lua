@@ -6,14 +6,15 @@ require "Window"
 	specifically for the "buy to crate".
 ]]
 
--- GeminiLocale
-local locale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
+-- GeminiLocale & GeminiHook
+local L = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
+local H = Apollo.GetPackage("Gemini:Hook-1.0").tPackage
 
 -- Register module as package
 local HousingBuyToCrate = {
 	MODULE_ID = "PurchaseConfirmation:HousingBuyToCrate",
-	strTitle = locale["Module_HousingBuyToCrate_Title"],
-	strDescription = locale["Module_HousingBuyToCrate_Description"],
+	strTitle = L["Module_HousingBuyToCrate_Title"],
+	strDescription = L["Module_HousingBuyToCrate_Description"],
 }
 Apollo.RegisterPackage(HousingBuyToCrate, HousingBuyToCrate.MODULE_ID, 1, {"PurchaseConfirmation", "Housing"})
 
@@ -52,13 +53,9 @@ function HousingBuyToCrate:Init()
 	
 	-- Dependency check on required addon
 	if housing == nil then
-		self.strFailureMessage = string.format(locale["Module_Failure_Addon_Missing"], "Housing")
+		self.strFailureMessage = string.format(L["Module_Failure_Addon_Missing"], "Housing")
 		error(self.strFailureMessage)
 	end	
-		
-	-- Ensures an open confirm dialog is closed when leaving Housing vendor range
-	-- NB: register the event so that it is fired on main addon, not this wrapper
-	--Apollo.RegisterEventHandler("CloseVendorWindow", "OnCancelPurchase", addon)
 	
 	self.xmlDoc = XmlDoc.CreateFromFile("HousingBuyToCrate.xml")
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
@@ -91,22 +88,22 @@ end
 
 function HousingBuyToCrate:Activate()
 	-- Hook into Vendor (if not already done)
-	if module.hook == nil then
-		log:info("Activating module: " .. module.MODULE_ID)
-		module.hook = housing.OnBuyToCrateBtn -- store ref to original function
-		housing.OnBuyToCrateBtn = module.Intercept -- replace Housings "OnBuyToCrate" with own interceptor
+	if H:IsHooked(housing, "OnBuyToCrateBtn") then
+		log:debug("Module %s already active, ignoring Activate request", module.MODULE_ID)
 	else
-		log:debug("Module " .. module.MODULE_ID .. " already active, ignoring Activate request")
+		log:info("Activating module: %s", module.MODULE_ID)		
+		H:RawHook(housing, "OnBuyToCrateBtn", HousingBuyToCrate.Intercept) -- Actual buy-intercept
+		H:RawHook(housing, "OnWindowClosed", HousingBuyToCrate.OnWindowClosed) -- Closing the vendor-window
 	end
 end
 
 function HousingBuyToCrate:Deactivate()
-	if module.hook ~= nil then
-		log:info("Deactivating module: " .. module.MODULE_ID)
-		housing.OnBuyToCrateBtn = module.hook -- restore original function ref
-		module.hook = nil -- clear hook
+	if H:IsHooked(housing, "OnBuyToCrateBtn") then
+		log:info("Deactivating module: %s", module.MODULE_ID)
+		H:Unhook(housing, "OnBuyToCrateBtn")		
+		H:Unhook(housing, "OnWindowClosed")
 	else
-		log:debug("Module " .. module.MODULE_ID .. " not active, ignoring Deactivate request")
+		log:debug("Module %s not active, ignoring Deactivate request", module.MODULE_ID)
 	end
 end
 
@@ -119,7 +116,7 @@ function HousingBuyToCrate:Intercept(wndControl, wndHandler)
 	-- Prepare addon-specific callback data, used if/when the user confirms a purchase
 	local tCallbackData = {
 		module = module,
-		hook = module.hook,
+		hook = H.hooks[housing]["OnBuyToCrateBtn"],
 		hookParams = {wndControl, wndHandler},
 		hookedAddon = housing
 	}	
@@ -192,4 +189,12 @@ function HousingBuyToCrate:GetDialogDetails(tPurchaseData)
 		
 	-- Rely on standard "Purchase" text strings on dialog, just return window with preview
 	return wnd
+end
+
+function HousingBuyToCrate:OnWindowClosed(...)
+	-- First, pass the window closed call on to Housing
+	H.hooks[housing]["OnWindowClosed"](housing, ...)
+	
+	-- Second, cancel the confirmation dialog
+	addon.OnCancelPurchase(addon)
 end

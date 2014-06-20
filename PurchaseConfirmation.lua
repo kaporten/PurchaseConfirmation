@@ -20,13 +20,11 @@ require "Item"
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
-PurchaseConfirmation.ADDON_VERSION = {5, 1, 0} -- major, minor, bugfix
+PurchaseConfirmation.ADDON_VERSION = {5, 2, 0} -- major, minor, bugfix
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
 PurchaseConfirmation.DEBUG_MODE = false 
-PurchaseConfirmation.LOG_LEVEL = "ERROR"
-
 
 -- GeminiLogging, configured during initialization
 local log
@@ -60,7 +58,7 @@ function PurchaseConfirmation:OnLoad()
 
 	-- GeminiLogger options
 	local opt = {
-		level = self.LOG_LEVEL,
+		level = "FATAL",
 		pattern = "%d %n %c %l - %m",
 		appender = "GeminiConsole"
 	}

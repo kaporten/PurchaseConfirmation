@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Addon Author="Porten" APIVersion="8" Name="PurchaseConfirmation" Description="Vendor purchase confirmation with automatic throttling for what is considered expensive" Version="">
+<Addon Author="Porten" APIVersion="8" Name="PurchaseConfirmation" Description="Vendor purchase confirmation with automatic throttling for what is considered expensive" Version="2">
     <!-- Libraries -->
-    <Script Name="Libs/Inspect-1.2/inspect.lua"/>
-    <Script Name="Libs/GeminiLogging-1.2/GeminiLogging.lua"/>
+    <Script Name="Libs/GeminiHook-1.0/GeminiHook-1.0.lua"/>
     <Script Name="Libs/GeminiLocale-1.0/GeminiLocale.lua"/>
+    <Script Name="Libs/GeminiLogging-1.2/GeminiLogging.lua"/>
     <!-- Localization -->
     <Script Name="Locale/enUS.lua"/>
     <Script Name="Locale/deDE.lua"/>
@@ -20,7 +20,7 @@
     <Form Name="HousingBuyToCrate.xml"/>
     <Script Name="SpaceStashBankSlot.lua"/>
     <Form Name="SpaceStashBankSlot.xml"/>
-	<Script Name="LilVendorPurchase.lua"/>
+    <Script Name="LilVendorPurchase.lua"/>
     <!-- Addon itself -->
     <Script Name="PurchaseConfirmation.lua"/>
     <Form Name="PurchaseConfirmation.xml"/>
