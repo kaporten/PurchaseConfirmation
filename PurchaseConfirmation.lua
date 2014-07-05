@@ -96,6 +96,7 @@ function PurchaseConfirmation:OnLoad()
 		"PurchaseConfirmation:HousingBuyToCrate",
 		"PurchaseConfirmation:SpaceStashBankSlot",
 		"PurchaseConfirmation:LilVendorPurchase",
+		"PurchaseConfirmation:ViragsMultibuyerPurchase",
 	}
 			
 	-- Load the XML file and await callback
@@ -307,7 +308,11 @@ function PurchaseConfirmation:CompletePurchase(tCallbackData)
 	if PurchaseConfirmation.DEBUG_MODE == true then
 		Print("PurchaseConfirmation: DEBUG MODE: - purchase ignored!")
 	else
-		tCallbackData.hook(tCallbackData.hookedAddon, tCallbackData.hookParams)
+		if tCallbackData.bHookParamsUnpack then
+			tCallbackData.hook(tCallbackData.hookedAddon, unpack(tCallbackData.hookParams))
+		else
+			tCallbackData.hook(tCallbackData.hookedAddon, tCallbackData.hookParams)
+		end		
 	end	
 end
 

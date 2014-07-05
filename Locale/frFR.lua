@@ -48,7 +48,7 @@ L["Settings_Modules_Button"] = "Modules!"
 
 L["Modules_WindowTitle"] = "Modules"
 
-L["Module_Enable"] = "Activer Module"
+L["Module_Enable"] = "Activer"
 L["Module_Failure_Addon_Missing"] = "Nécessaire %q addon introuvable."
 
 L["Module_VendorPurchase_Title"] = "Vendeur: Acheter"
@@ -65,3 +65,6 @@ L["Module_SpaceStashBankSlot_Description"] = "Si vous utilisez l'addon SpaceStas
 
 L["Module_LilVendorPurchase_Title"] = "LilVendor: Acheter"
 L["Module_LilVendorPurchase_Description"] = "Si vous utilisez l'addon LilVendor, ce sera intercepter achats. Même que pour l'addon stock du fournisseur, sauf pour le remplacement addon LilVendor."
+
+L["Module_ViragsMultibuyerPurchase_Title"] = "ViragsMultibyer: Acheter"
+L["Module_ViragsMultibuyerPurchase_Description"] = "Si vous utilisez l'addon ViragsMultibyer, ce sera intercepter achats avant de montrer la boîte de dialogue de confirmation ViragsMultibuyer interne."

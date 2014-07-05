@@ -48,7 +48,7 @@ L["Settings_Modules_Button"] = "Module"
 
 L["Modules_WindowTitle"] = "Module"
 
-L["Module_Enable"] = "Aktivieren Modul"
+L["Module_Enable"] = "Aktivieren"
 L["Module_Failure_Addon_Missing"] = "Erforderliche Addon %q nicht gefunden."
 	
 L["Module_VendorPurchase_Title"] = "Verkäufer: Kauf"
@@ -65,3 +65,6 @@ L["Module_SpaceStashBankSlot_Description"] = "Wenn Sie das Addon SpaceStash sind
 
 L["Module_LilVendorPurchase_Title"] = "LilVendor: Kauf"
 L["Module_LilVendorPurchase_Description"] = "Wenn Sie das Addon LilVendor sind, wird diese Käufe abzufangen. Gleiche wie für die Lager-Verkauf-Addon, mit Ausnahme der Ersatz LilVendor Addon."
+
+L["Module_ViragsMultibuyerPurchase_Title"] = "ViragsMultibyer: Kauf"
+L["Module_ViragsMultibuyerPurchase_Description"] = "Wenn Sie das Addon ViragsMultibyer sind, wird diese Käufe vor, die die ViragsMultibuyer internen Bestätigungsdialog abfangen."

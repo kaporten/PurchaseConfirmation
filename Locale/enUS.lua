@@ -48,7 +48,7 @@ L["Settings_Modules_Button"] = "Modules"
 	
 L["Modules_WindowTitle"] = "Modules"
 
-L["Module_Enable"] = "Enable Module"
+L["Module_Enable"] = "Enable"
 L["Module_Failure_Addon_Missing"] = "Required addon %q not found."
 	
 L["Module_VendorPurchase_Title"] = "Vendor: Purchase"
@@ -65,3 +65,6 @@ L["Module_SpaceStashBankSlot_Description"] = "If you're using the SpaceStash add
 
 L["Module_LilVendorPurchase_Title"] = "LilVendor: Purchase"
 L["Module_LilVendorPurchase_Description"] = "If you're using the LilVendor addon, this will intercept purchases. Same as for the stock Vendor addon, except for the LilVendor replacement addon."
+
+L["Module_ViragsMultibuyerPurchase_Title"] = "ViragsMultibyer: Purchase"
+L["Module_ViragsMultibuyerPurchase_Description"] = "If you're using the ViragsMultibyer addon, this will intercept purchases before showing the ViragsMultibuyer-internal confirmation dialog."

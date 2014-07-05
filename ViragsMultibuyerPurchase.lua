@@ -2,8 +2,7 @@ require "Apollo"
 require "Window"
 
 --[[
-	Provides hook-in functionality for the Vendor addon,
-	specifically for the regular "purchase item" functionality.
+	Provides hook-in functionality for the ViragsMultibuyer addon.
 ]]
 
 -- GeminiLocale
@@ -11,15 +10,15 @@ local locale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("Purcha
 local H = Apollo.GetPackage("Gemini:Hook-1.0").tPackage
 
 -- Register module as package
-local VendorPurchase = {
-	MODULE_ID = "PurchaseConfirmation:VendorPurchase",
-	strTitle = locale["Module_VendorPurchase_Title"],
-	strDescription = locale["Module_VendorPurchase_Description"],
+local ViragsMultibuyerPurchase = {
+	MODULE_ID = "PurchaseConfirmation:ViragsMultibuyerPurchase",
+	strTitle = locale["Module_ViragsMultibuyerPurchase_Title"],
+	strDescription = locale["Module_ViragsMultibuyerPurchase_Description"],
 }
-Apollo.RegisterPackage(VendorPurchase, VendorPurchase.MODULE_ID, 1, {"PurchaseConfirmation", "Vendor"})
+Apollo.RegisterPackage(ViragsMultibuyerPurchase, ViragsMultibuyerPurchase.MODULE_ID, 1, {"ViragsMultibuyer"})
 
 -- "glocals" set during Init
-local addon, module, vendor, log
+local addon, module, multibuyer, log
 
 -- Copied from the Util addon. Used to set item quality borders on the confirmation dialog
 -- TODO: Figure out how to use list in Util addon itself.
@@ -36,7 +35,7 @@ local qualityColors = {
 
 
 --- Standard Lua prototype class definition
-function VendorPurchase:new(o)
+function ViragsMultibuyerPurchase:new(o)
 	o = o or {}
 	setmetatable(o, self)
 	self.__index = self 
@@ -45,18 +44,25 @@ end
 
 --- Registers this addon wrapper.
 -- Called by PurchaseConfirmation during initialization.
-function VendorPurchase:Init()
+function ViragsMultibuyerPurchase:Init()
 	addon = Apollo.GetAddon("PurchaseConfirmation") -- main addon, calling the shots
 	module = self -- Current module
 	log = addon.log
-	vendor = Apollo.GetAddon("Vendor") -- real Vendor to hook
+	multibuyer = Apollo.GetAddon("ViragsMultibuyer")	
 
 	-- Dependency check on required addon
-	if vendor == nil then
+	if multibuyer == nil then
+		self.strFailureMessage = string.format(locale["Module_Failure_Addon_Missing"], "ViragsMultibuyer")
+		error(self.strFailureMessage)
+	end	
+
+	-- Dependency check on required addon (Vendor also required for Virags)
+	if Apollo.GetAddon("Vendor") == nil then
 		self.strFailureMessage = string.format(locale["Module_Failure_Addon_Missing"], "Vendor")
 		error(self.strFailureMessage)
-	end		
-			
+	end	
+
+	
 	-- Ensures an open confirm dialog is closed when leaving vendor range
 	-- NB: register the event so that it is fired on main addon, not this wrapper
 	Apollo.RegisterEventHandler("CloseVendorWindow", "OnCancelPurchase", addon)
@@ -65,20 +71,20 @@ function VendorPurchase:Init()
 end
 
 
-function VendorPurchase:Activate()
+function ViragsMultibuyerPurchase:Activate()
 	-- Hook into Vendor (if not already done)
-	if H:IsHooked(vendor, "FinalizeBuy") then
+	if H:IsHooked(multibuyer, "FinalizeBuy") then
 		log:debug("Module %s already active, ignoring Activate request", module.MODULE_ID)
 	else
 		log:info("Activating module: %s", module.MODULE_ID)		
-		H:RawHook(vendor, "FinalizeBuy", VendorPurchase.Intercept) -- Actual buy-intercept
+		H:RawHook(multibuyer, "FinalizeBuy", ViragsMultibuyerPurchase.Intercept) -- Actual buy-intercept
 	end
 end
 
-function VendorPurchase:Deactivate()
-	if H:IsHooked(vendor, "FinalizeBuy") then
+function ViragsMultibuyerPurchase:Deactivate()
+	if H:IsHooked(multibuyer, "FinalizeBuy") then
 		log:info("Deactivating module: %s", module.MODULE_ID)
-		H:Unhook(vendor, "FinalizeBuy")		
+		H:Unhook(multibuyer, "FinalizeBuy")		
 	else
 		log:debug("Module %s not active, ignoring Deactivate request", module.MODULE_ID)
 	end
@@ -87,22 +93,26 @@ end
 
 
 --- Main hook interceptor function.
--- Called on Vendor's "Purchase" buttonclick / item rightclick.
+-- Called on Vendors's "Purchase" buttonclick / item rightclick.
 -- @tItemData item being "operated on" (purchase, sold, buyback) on the Vendor
-function VendorPurchase:Intercept(tItemData)
+function ViragsMultibuyerPurchase:Intercept(tItemData, bConfirmPurchase)
 	log:debug("Intercept: enter method")
 		
 	-- Store purchase details on module for easier debugging
-	if addon.DEBUG_MODE == true then
+	--if addon.DEBUG_MODE == true then
 		module.tItemData = tItemData
-	end
+	--end
 	
 	-- Prepare addon-specific callback data, used if/when the user confirms a purchase
 	local tCallbackData = {
 		module = module,
-		hook = H.hooks[vendor]["FinalizeBuy"],
-		hookParams = tItemData,
-		hookedAddon = vendor
+		hook = H.hooks[multibuyer]["FinalizeBuy"],
+		hookParams = {
+			tItemData, 
+			bConfirmPurchase
+		},
+		bHookParamsUnpack = true,
+		hookedAddon = multibuyer
 	}
 
 	--[[
@@ -113,7 +123,7 @@ function VendorPurchase:Intercept(tItemData)
 	]]
 		
 	-- Only check thresholds if this is a purchase (not sales, repairs or buybacks)
-	if not vendor.wndVendor:FindChild("VendorTab0"):IsChecked() then
+	if not Apollo.GetAddon("Vendor").wndVendor:FindChild("VendorTab0"):IsChecked() then
 		log:debug("Intercept: Not a purchase")
 		addon:CompletePurchase(tCallbackData)
 		return
@@ -122,6 +132,21 @@ function VendorPurchase:Intercept(tItemData)
 	-- No itemdata on purchase, somehow... "this should never happen"
 	if not tItemData then
 		log:warn("Intercept: No tItemData")
+		addon:CompletePurchase(tCallbackData)
+		return
+	end
+	
+	-- ViragsMultibuyer has a 250 stacksize max
+	local nCount = multibuyer:GetCount()
+	if nCount > 250 then 
+		nCount = 250
+	end
+	log:debug("ViragsMultibuyer count determined: %d", nCount)
+	tCallbackData.nCount = nCount
+			
+	-- ViragsMultibuyer logic for when to show internal confirm dialog
+	if not bConfirmPurchase and not (Apollo.IsShiftKeyDown() and nCount == 1) then
+		log:info("Intercept: ViragsMultibuyer presenting own dialog")
 		addon:CompletePurchase(tCallbackData)
 		return
 	end
@@ -142,7 +167,7 @@ function VendorPurchase:Intercept(tItemData)
 	local tPurchaseData = {
 		tCallbackData = tCallbackData,
 		tCurrency = tCurrency,
-		monPrice = module:GetPrice(tItemData),
+		monPrice = module:GetPrice(tItemData, nCount),
 	}
 		
 	-- Request pricecheck
@@ -151,14 +176,15 @@ end
 
 --- Extracts item price from tItemData
 -- @param tItemData Current purchase item data, as supplied by the Vendor addon
-function VendorPurchase:GetPrice(tItemData)
+function ViragsMultibuyerPurchase:GetPrice(tItemData, nCount)
 	log:debug("GetPrice: enter method")
+	log:debug("Count: %d", nCount)
 	local monPrice = 0
 	
 	if type(tItemData.itemData) == "userdata" then
 		-- Regular items have a nested "itemData" object with functions for getting price etc.
 		-- If that exist, use it to extract price details since that is how the Vendor module does it
-		monPrice = tItemData.itemData:GetBuyPrice():Multiply(tItemData.nStackSize):GetAmount()
+		monPrice = tItemData.itemData:GetBuyPrice():Multiply(nCount):GetAmount()
 	elseif type(tItemData.tPriceInfo) == "table" then
 		-- If no nested itemData table exists, just get the "raw" price. Only known case so far: buying the mount speed upgrade.
 		monPrice = tItemData.tPriceInfo.nAmount1		
@@ -173,13 +199,13 @@ end
 -- @param tPurchaseDetails, containing all required info about on-going purchase
 -- @return [1] window to display on the central details-spot on the dialog.
 -- @return [2] table of text strings to set for title/buttons on the dialog
-function VendorPurchase:GetDialogDetails(tPurchaseData)
+function ViragsMultibuyerPurchase:GetDialogDetails(tPurchaseData)
 	log:debug("GetDialogWindowDetails: enter method")
 	
 	local tCallbackData = tPurchaseData.tCallbackData
 	local monPrice = tPurchaseData.monPrice	
 	
-	local tItemData = tCallbackData.hookParams
+	local tItemData = tCallbackData.hookParams[1]
 	local wnd = addon.tDetailForms[addon.eDetailForms.StandardItem]
 		
 	-- Set basic info on details area
@@ -187,11 +213,11 @@ function VendorPurchase:GetDialogDetails(tPurchaseData)
 	wnd:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
 	wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
 	wnd:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
-	wnd:FindChild("CantUse"):Show(vendor:HelperPrereqFailed(tItemData))
+	wnd:FindChild("CantUse"):Show(Apollo.GetAddon("Vendor"):HelperPrereqFailed(tItemData))
 	
 	-- Only show stack size count if we're buying more a >1 size stack
-	if (tItemData.nStackSize > 1) then
-		wnd:FindChild("StackSize"):SetText(tItemData.nStackSize)
+	if (tCallbackData.nCount > 1) then
+		wnd:FindChild("StackSize"):SetText(tCallbackData.nCount)
 		wnd:FindChild("StackSize"):Show(true, true)
 	else
 		wnd:FindChild("StackSize"):Show(false, true)
@@ -216,7 +242,7 @@ function VendorPurchase:GetDialogDetails(tPurchaseData)
 
 	-- Update tooltip to match current item
 	wnd:SetData(tItemData)	
-	vendor:OnVendorListItemGenerateTooltip(wnd, wnd)
+	Apollo.GetAddon("Vendor"):OnVendorListItemGenerateTooltip(wnd, wnd)
 
 	return wnd
 end
