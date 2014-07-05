@@ -67,7 +67,7 @@ end
 
 function VendorPurchase:Activate()
 	-- Hook into Vendor (if not already done)
-	if H:IsHooked(housing, "FinalizeBuy") then
+	if H:IsHooked(vendor, "FinalizeBuy") then
 		log:debug("Module %s already active, ignoring Activate request", module.MODULE_ID)
 	else
 		log:info("Activating module: %s", module.MODULE_ID)		
