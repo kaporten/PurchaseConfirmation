@@ -8,6 +8,7 @@ require "Window"
 
 -- GeminiLocale
 local locale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
+local H = Apollo.GetPackage("Gemini:Hook-1.0").tPackage
 
 -- Register module as package
 local VendorPurchase = {
@@ -63,26 +64,26 @@ function VendorPurchase:Init()
 	return self
 end
 
+
 function VendorPurchase:Activate()
 	-- Hook into Vendor (if not already done)
-	if module.hook == nil then
-		log:info("Activating module: " .. module.MODULE_ID)
-		module.hook = vendor.FinalizeBuy -- store ref to original function
-		vendor.FinalizeBuy = module.Intercept -- replace Vendors FinalizeBuy with own interceptor
+	if H:IsHooked(housing, "FinalizeBuy") then
+		log:debug("Module %s already active, ignoring Activate request", module.MODULE_ID)
 	else
-		log:debug("Module " .. module.MODULE_ID .. " already active, ignoring Activate request")
+		log:info("Activating module: %s", module.MODULE_ID)		
+		H:RawHook(vendor, "FinalizeBuy", VendorPurchase.Intercept) -- Actual buy-intercept
 	end
 end
 
 function VendorPurchase:Deactivate()
-	if module.hook ~= nil then
-		log:info("Deactivating module: " .. module.MODULE_ID)
-		vendor.FinalizeBuy = module.hook -- restore original function ref
-		module.hook = nil -- clear hook
+	if H:IsHooked(vendor, "FinalizeBuy") then
+		log:info("Deactivating module: %s", module.MODULE_ID)
+		H:Unhook(vendor, "FinalizeBuy")		
 	else
-		log:debug("Module " .. module.MODULE_ID .. " not active, ignoring Deactivate request")
+		log:debug("Module %s not active, ignoring Deactivate request", module.MODULE_ID)
 	end
 end
+
 
 
 --- Main hook interceptor function.
@@ -99,7 +100,7 @@ function VendorPurchase:Intercept(tItemData)
 	-- Prepare addon-specific callback data, used if/when the user confirms a purchase
 	local tCallbackData = {
 		module = module,
-		hook = module.hook,
+		hook = H.hooks[vendor]["FinalizeBuy"],
 		hookParams = tItemData,
 		hookedAddon = vendor
 	}
