@@ -112,7 +112,7 @@ function ViragsMultibuyerPurchase:Intercept(tItemData, bConfirmPurchase)
 			bConfirmPurchase
 		},
 		bHookParamsUnpack = true,
-		hookedAddon = multibuyer
+		hookedAddon = Apollo.GetAddon("Vendor")
 	}
 
 	--[[
