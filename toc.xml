@@ -13,7 +13,6 @@
     <Form Name="Settings.xml"/>
     <!-- Modules -->
     <Script Name="VendorPurchase.lua"/>
-    <Form Name="VendorPurchase.xml"/>
     <Script Name="VendorRepair.lua"/>
     <Form Name="VendorRepair.xml"/>
     <Script Name="HousingBuyToCrate.lua"/>

@@ -20,7 +20,7 @@ require "Item"
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
-PurchaseConfirmation.ADDON_VERSION = {5, 2, 0} -- major, minor, bugfix
+PurchaseConfirmation.ADDON_VERSION = {6, 0, 0} -- major, minor, bugfix
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
@@ -35,7 +35,6 @@ local locale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("Purcha
 -- Height of the details-foldout
 local FOLDOUT_HEIGHT = 100
 
-
 -- Standard object instance creation
 function PurchaseConfirmation:new(o)
 	o = o or {}
@@ -49,6 +48,12 @@ function PurchaseConfirmation:Init()
 	local bHasConfigureFunction = true
 	local strConfigureButtonText = "Purchase Conf."
 	local tDependencies = {}
+	
+	-- Shared forms, re-used by modules
+	self.eDetailForms = {
+		StandardItem = "StandardItem",
+	}
+	self.tDetailForms = {}
 	
 	Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 end
@@ -109,11 +114,10 @@ function PurchaseConfirmation:OnDocLoaded()
 		
 	-- Load confirmation dialog form 
 	self.wndDialog = Apollo.LoadForm(self.xmlDoc, "DialogForm", nil, self)
-	if self.wndDialog == nil then
-		Apollo.AddAddonErrorText(self, "Could not load the ConfirmDialog window")
-		log:error("OnDocLoaded: wndDialog is nil!")
-		return
-	end
+	
+	-- Load common detail-panels (TODO: Rewire modules to use these, instead of having to do their own form-loading)
+	self.tDetailForms[self.eDetailForms.StandardItem] = Apollo.LoadForm(self.xmlDoc, "DetailsStandardItemForm", self.wndDialog:FindChild("VendorSpecificArea"), self)
+
 	self:LocalizeDialog(self.wndDialog)
 	
 	-- Dialog form has details-foldout enabled in Hudson for editability. Collapse it by default
@@ -252,6 +256,7 @@ function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
 	
 	-- Prepare central details area	
 	local wndDetails, tStrings = tCallbackData.module:GetDialogDetails(tPurchaseData)
+	self.testwnd = wndDetails
 	
 	-- Hide all detail children
 	local children = self.wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea"):GetChildren()
@@ -437,6 +442,8 @@ function PurchaseConfirmation:UpdateModuleStatus()
 		end
 	end
 end
+
+--function PurchaseConfirmation:
 
 
 ---------------------------------------------------------------------------------------------------
