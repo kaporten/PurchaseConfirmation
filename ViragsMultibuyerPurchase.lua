@@ -99,9 +99,9 @@ function ViragsMultibuyerPurchase:Intercept(tItemData, bConfirmPurchase)
 	log:debug("Intercept: enter method")
 		
 	-- Store purchase details on module for easier debugging
-	--if addon.DEBUG_MODE == true then
+	if addon.DEBUG_MODE == true then
 		module.tItemData = tItemData
-	--end
+	end
 	
 	-- Prepare addon-specific callback data, used if/when the user confirms a purchase
 	local tCallbackData = {
@@ -178,7 +178,6 @@ end
 -- @param tItemData Current purchase item data, as supplied by the Vendor addon
 function ViragsMultibuyerPurchase:GetPrice(tItemData, nCount)
 	log:debug("GetPrice: enter method")
-	log:debug("Count: %d", nCount)
 	local monPrice = 0
 	
 	if type(tItemData.itemData) == "userdata" then
