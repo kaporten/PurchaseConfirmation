@@ -155,7 +155,14 @@ function ViragsMultibuyerPurchase:Intercept(tItemData, bConfirmPurchase)
 	end
 	log:debug("ViragsMultibuyer count determined: %d", nCount)
 	tCallbackData.nCount = nCount
-			
+	
+	-- Skip if Virag already presented confirmation dialog.
+	if bConfirmPurchase then
+		log:info("Intercept: ViragsMultibuyer has presented own dialog (which was confirmed)")
+		addon:CompletePurchase(tCallbackData)
+		return
+	end
+	
 	-- ViragsMultibuyer logic for when to show internal confirm dialog
 	if not bConfirmPurchase and not (Apollo.IsShiftKeyDown() and nCount == 1) then
 		log:info("Intercept: ViragsMultibuyer presenting own dialog")
