@@ -68,3 +68,6 @@ L["Module_LilVendorPurchase_Description"] = "Si vous utilisez l'addon LilVendor,
 
 L["Module_ViragsMultibuyerPurchase_Title"] = "ViragsMultibyer: Acheter"
 L["Module_ViragsMultibuyerPurchase_Description"] = "Si vous utilisez l'addon ViragsMultibyer, ce sera intercepter achats avant de montrer la boîte de dialogue de confirmation ViragsMultibuyer interne."
+
+L["Module_CostumesDye_Title"] = "Costumes: Teinture"
+L["Module_CostumesDye_Description"] = "Vous cherchez une bonne n'est jamais pas cher, surtout pas dans WildStar. Ce module vous permet de réfléchir à deux fois avant de laisser tomber 2 Platinum sur ce colorant rouge sang doux."
