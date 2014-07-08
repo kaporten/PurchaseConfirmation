@@ -20,6 +20,8 @@ Apollo.RegisterPackage(ViragsMultibuyerPurchase, ViragsMultibuyerPurchase.MODULE
 -- "glocals" set during Init
 local addon, module, multibuyer, log
 
+local parentAddon = "Vendor"
+
 -- Copied from the Util addon. Used to set item quality borders on the confirmation dialog
 -- TODO: Figure out how to use list in Util addon itself.
 local qualityColors = {
@@ -55,13 +57,17 @@ function ViragsMultibuyerPurchase:Init()
 		self.strFailureMessage = string.format(locale["Module_Failure_Addon_Missing"], "ViragsMultibuyer")
 		error(self.strFailureMessage)
 	end	
-
-	-- Dependency check on required addon (Vendor also required for Virags)
+	
+	-- Dependency check on required Vendor addon
+	-- ViragsMultibuyer supports both stock Vendor and LilVendor
 	if Apollo.GetAddon("Vendor") == nil then
-		self.strFailureMessage = string.format(locale["Module_Failure_Addon_Missing"], "Vendor")
-		error(self.strFailureMessage)
-	end	
-
+		if (Apollo.GetAddon("LilVendor") ~= nil) then
+			parentAddon = "LilVendor"
+		else
+			self.strFailureMessage = string.format(locale["Module_Failure_Addon_Missing"], "Vendor")
+			error(self.strFailureMessage)
+		end
+	end
 	
 	-- Ensures an open confirm dialog is closed when leaving vendor range
 	-- NB: register the event so that it is fired on main addon, not this wrapper
@@ -122,12 +128,18 @@ function ViragsMultibuyerPurchase:Intercept(tItemData, bConfirmPurchase)
 		the purchase itself.
 	]]
 		
-	-- Only check thresholds if this is a purchase (not sales, repairs or buybacks)
-	if not Apollo.GetAddon("Vendor").wndVendor:FindChild("VendorTab0"):IsChecked() then
+	local wndVendor
+	if parentAddon == "Vendor" then
+		wndVendor = Apollo.GetAddon(parentAddon).wndVendor
+	elseif parentAddon == "LilVendor" then
+		wndVendor = Apollo.GetAddon(parentAddon).wndLilVendor
+	end
+
+	if not wndVendor:FindChild("VendorTab0"):IsChecked() then
 		log:debug("Intercept: Not a purchase")
 		addon:CompletePurchase(tCallbackData)
 		return
-	end
+	end	
 	
 	-- No itemdata on purchase, somehow... "this should never happen"
 	if not tItemData then
@@ -212,7 +224,7 @@ function ViragsMultibuyerPurchase:GetDialogDetails(tPurchaseData)
 	wnd:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
 	wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
 	wnd:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
-	wnd:FindChild("CantUse"):Show(Apollo.GetAddon("Vendor"):HelperPrereqFailed(tItemData))
+	wnd:FindChild("CantUse"):Show(Apollo.GetAddon(parentAddon):HelperPrereqFailed(tItemData))
 	
 	-- Only show stack size count if we're buying more a >1 size stack
 	if (tCallbackData.nCount > 1) then
@@ -241,7 +253,7 @@ function ViragsMultibuyerPurchase:GetDialogDetails(tPurchaseData)
 
 	-- Update tooltip to match current item
 	wnd:SetData(tItemData)	
-	Apollo.GetAddon("Vendor"):OnVendorListItemGenerateTooltip(wnd, wnd)
+	Apollo.GetAddon(parentAddon):OnVendorListItemGenerateTooltip(wnd, wnd)	
 
 	return wnd
 end

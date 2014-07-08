@@ -60,33 +60,7 @@ function LilVendorPurchase:Init()
 	-- NB: register the event so that it is fired on main addon, not this wrapper
 	Apollo.RegisterEventHandler("CloseVendorWindow", "OnCancelPurchase", addon)
 	
-	self.xmlDoc = XmlDoc.CreateFromFile("VendorPurchase.xml") -- reuse stock VendorPurchase form
-	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
-	
 	return self
-end
-
-function LilVendorPurchase:OnDocLoaded()	
-	-- Check that XML document is properly loaded
-	if module.xmlDoc == nil or not module.xmlDoc:IsLoaded() then
-		Apollo.AddAddonErrorText(module, "XML document was not loaded")
-		log:error("XML document was not loaded")
-		return
-	end
-		
-	-- Load Vendor item purchase details form
-	local parent = addon.wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea")
-	module.wnd = Apollo.LoadForm(module.xmlDoc, "ItemLineForm", parent, module)
-	if module.wnd == nil then
-		Apollo.AddAddonErrorText(module, "Could not load the ConfirmDialog window")
-		log:error("OnDocLoaded: wndConfirmDialog is nil!")
-		return
-	end
-	
-	module.wnd:Show(true, true)	
-	module.xmlDoc = nil
-	
-	log:info("Module " .. module.MODULE_ID .. " fully loaded")
 end
 
 function LilVendorPurchase:Activate()
@@ -205,7 +179,7 @@ function LilVendorPurchase:GetDialogDetails(tPurchaseData)
 	local monPrice = tPurchaseData.monPrice	
 	
 	local tItemData = tCallbackData.hookParams
-	local wnd = module.wnd
+	local wnd = addon.tDetailForms[addon.eDetailForms.StandardItem]
 	
 	-- Set basic info on details area
 	wnd:FindChild("ItemName"):SetText(tItemData.strName)
@@ -241,7 +215,7 @@ function LilVendorPurchase:GetDialogDetails(tPurchaseData)
 
 	-- Update tooltip to match current item
 	wnd:SetData(tItemData)	
-	vendor:OnVendorListItemGenerateTooltip(self.wnd, self.wnd)
+	vendor:OnVendorListItemGenerateTooltip(wnd, wnd)
 
 	return wnd
 end
