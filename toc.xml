@@ -12,6 +12,7 @@
     <Script Name="Settings.lua"/>
     <Form Name="Settings.xml"/>
     <!-- Modules -->
+	<Script Name="CostumesDye.lua"/>
     <Script Name="VendorPurchase.lua"/>
     <Script Name="VendorRepair.lua"/>
     <Form Name="VendorRepair.xml"/>

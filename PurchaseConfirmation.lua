@@ -20,7 +20,7 @@ require "Item"
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
-PurchaseConfirmation.ADDON_VERSION = {6, 0, 2} -- major, minor, bugfix
+PurchaseConfirmation.ADDON_VERSION = {7, 0, 0} -- major, minor, bugfix
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
@@ -52,6 +52,7 @@ function PurchaseConfirmation:Init()
 	-- Shared forms, re-used by modules
 	self.eDetailForms = {
 		StandardItem = "StandardItem",
+		SimpleIcon = "SimpleIcon"
 	}
 	self.tDetailForms = {}
 	
@@ -91,11 +92,12 @@ function PurchaseConfirmation:OnLoad()
 	
 	-- Names of modules to load during initialization
 	self.moduleNames = {		
+		"PurchaseConfirmation:CostumesDye",
+		"PurchaseConfirmation:HousingBuyToCrate",
+		"PurchaseConfirmation:LilVendorPurchase",
+		"PurchaseConfirmation:SpaceStashBankSlot",
 		"PurchaseConfirmation:VendorPurchase",
 		"PurchaseConfirmation:VendorRepair",
-		"PurchaseConfirmation:HousingBuyToCrate",
-		"PurchaseConfirmation:SpaceStashBankSlot",
-		"PurchaseConfirmation:LilVendorPurchase",
 		"PurchaseConfirmation:ViragsMultibuyerPurchase",
 	}
 			
@@ -118,6 +120,7 @@ function PurchaseConfirmation:OnDocLoaded()
 	
 	-- Load common detail-panels (TODO: Rewire modules to use these, instead of having to do their own form-loading)
 	self.tDetailForms[self.eDetailForms.StandardItem] = Apollo.LoadForm(self.xmlDoc, "DetailsStandardItemForm", self.wndDialog:FindChild("VendorSpecificArea"), self)
+	self.tDetailForms[self.eDetailForms.SimpleIcon] = Apollo.LoadForm(self.xmlDoc, "DetailsSimpleIconForm", self.wndDialog:FindChild("VendorSpecificArea"), self)
 
 	self:LocalizeDialog(self.wndDialog)
 	
