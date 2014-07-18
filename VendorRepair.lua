@@ -15,10 +15,10 @@ local VendorRepair = {
 	strTitle = locale["Module_VendorRepair_Title"],
 	strDescription = locale["Module_VendorRepair_Description"],
 }
-Apollo.RegisterPackage(VendorRepair, VendorRepair.MODULE_ID, 1, {"PurchaseConfirmation", "Vendor"})
+Apollo.RegisterPackage(VendorRepair, VendorRepair.MODULE_ID, 1, {"PurchaseConfirmation"})
 
 -- "glocals" set during Init
-local addon, module, vendor, log
+local addon, module, hookedAddon, vendorAddon, log
 
 -- Copied from the Util addon. Used to set item quality borders on the confirmation dialog
 -- TODO: Figure out how to use list in Util addon itself.
@@ -48,13 +48,35 @@ function VendorRepair:Init()
 	addon = Apollo.GetAddon("PurchaseConfirmation") -- main addon, calling the shots
 	module = self -- Current module
 	log = addon.log
-	vendor = Apollo.GetAddon("Vendor") -- real Vendor to hook
 
-	-- Dependency check on required addon
-	if vendor == nil then
-		self.strFailureMessage = string.format(locale["Module_Failure_Addon_Missing"], "Vendor")
+	-- Determine which combination of (Vendor|LilVendor)[ViragsMultibuyer] we're running
+	self.bViragsMultibuyer = Apollo.GetAddon("ViragsMultibuyer") ~= nil
+	self.bVendor = Apollo.GetAddon("Vendor") ~= nil
+	self.bLilVendor = Apollo.GetAddon("LilVendor") ~= nil
+	
+	-- Either Vendor or LilVendor is required	
+	self.strVendorAddon = (Apollo.GetAddon("Vendor") and "Vendor") or (Apollo.GetAddon("LilVendor") and "LilVendor")
+	log:info("Vendor addon: %s", tostring(self.strVendorAddon))
+	if not self.strVendorAddon then
+		self.strFailureMessage = string.format(locale["Module_Failure_Addon_Missing"], "Vendor, LilVendor")
 		error(self.strFailureMessage)
-	end	
+	end
+		
+	-- If ViragsMultibyer is present, hook on that, otherwise hook on underlying vendor
+	self.strAddonToHook = self.bViragsMultibuyer and "ViragsMultibuyer" or self.strVendorAddon
+
+	-- Determine vendor window-variable name
+	self.strVendorFrame = "wnd" .. self.strVendorAddon -- "wndVendor" or "wndLilVendor"		
+
+	-- References to actual addons. Will be the same addon if ViragsMultibuyer is not installed.
+	hookedAddon = Apollo.GetAddon(self.strAddonToHook)
+	vendorAddon = Apollo.GetAddon(self.strVendorAddon)
+	
+	-- Just-in-case. Should not happen unless I borked the logic above.
+	if hookedAddon == nil or vendorAddon == nil then
+		self.strErrorMessage = "Internal error, hookedAddon or VendorAddon not found"
+		error(self.strErrorMessage)
+	end
 			
 	-- Ensures an open confirm dialog is closed when leaving vendor range
 	-- NB: register the event so that it is fired on main addon, not this wrapper
@@ -100,11 +122,10 @@ function VendorRepair:OnDocLoaded()
 end
 
 function VendorRepair:Activate()
-	-- Hook into Vendor (if not already done)
 	if module.hook == nil then
 		log:info("Activating module: " .. module.MODULE_ID)
-		module.hook = vendor.FinalizeBuy -- store ref to original function
-		vendor.FinalizeBuy = module.Intercept -- replace Vendors FinalizeBuy with own interceptor
+		module.hook = hookedAddon.FinalizeBuy
+		hookedAddon.FinalizeBuy = module.Intercept
 	else
 		log:debug("Module " .. module.MODULE_ID .. " already active, ignoring Activate request")
 	end
@@ -113,8 +134,8 @@ end
 function VendorRepair:Deactivate()
 	if module.hook ~= nil then
 		log:info("Deactivating module: " .. module.MODULE_ID)
-		vendor.FinalizeBuy = module.hook -- restore original function ref
-		module.hook = nil -- clear hook
+		hookedAddon.FinalizeBuy = module.hook
+		module.hook = nil
 	else
 		log:debug("Module " .. module.MODULE_ID .. " not active, ignoring Deactivate request")
 	end
@@ -123,7 +144,8 @@ end
 --- Main hook interceptor function.
 -- Called on Vendor's "Purchase" buttonclick / item rightclick.
 -- @tItemData item being "operated on" (purchase, sold, buyback) on the Vendr
-function VendorRepair:Intercept(tItemData)
+-- @bViragsConfirmed, not used in this module, just passed along
+function VendorRepair:Intercept(tItemData, bViragsConfirmed)
 	log:debug("Intercept: enter method")
 		
 	-- Store purchase details on module for easier debugging
@@ -135,7 +157,11 @@ function VendorRepair:Intercept(tItemData)
 	local tCallbackData = {
 		module = module,
 		hook = module.hook,
-		hookParams = tItemData,
+		hookParams = {
+			tItemData, 
+			bViragsConfirmed
+		},
+		bHookParamsUnpack = true,
 		hookedAddon = vendor
 	}
 
@@ -147,27 +173,27 @@ function VendorRepair:Intercept(tItemData)
 	]]
 		
 	-- Only check thresholds if this is a repair
-	if not vendor.wndVendor:FindChild("VendorTab3"):IsChecked() then
+	if not vendorAddon[module.strVendorFrame]:FindChild("VendorTab3"):IsChecked() then
 		log:debug("Intercept: Not a repair")
 		addon:CompletePurchase(tCallbackData)
 		return
 	end
 
 	-- A list of repairable items should exist in tRepariableItems
-	if not vendor.tRepairableItems then
+	if not vendorAddon.tRepairableItems then
 		log:warn("Intercept: No repairable items found")
 		addon:CompletePurchase(tCallbackData)
 		return
 	end
 	
 	-- Assumption: all repairs will be of same (single) currency type
-	local eCurrencyType1 = vendor.tRepairableItems[1].tPriceInfo.eCurrencyType1
+	local eCurrencyType1 = vendorAddon.tRepairableItems[1].tPriceInfo.eCurrencyType1
 	tCallbackData.eCurrencyType1 = eCurrencyType1
 	
 	-- Check if current currency is in supported-list
 	local tCurrency = addon:GetSupportedCurrencyByEnum(eCurrencyType1)
 	if tCurrency == nil then
-		log:info("Intercept: Unsupported currentTypes " .. tostring(vendor.tRepairableItems[1].tPriceInfo.eCurrencyType1) .. " and " .. tostring(vendor.tRepairableItems[1].tPriceInfo.eCurrencyType2))
+		log:info("Intercept: Unsupported currentTypes " .. tostring(vendorAddon.tRepairableItems[1].tPriceInfo.eCurrencyType1) .. " and " .. tostring(vendorAddon.tRepairableItems[1].tPriceInfo.eCurrencyType2))
 		addon:CompletePurchase(tCallbackData)
 		return
 	end
@@ -198,7 +224,7 @@ function VendorRepair:GetPrice(tItemData)
 	else
 		-- Summarize total repair cost manually
 		local total = 0
-		for _,v in pairs(vendor.tRepairableItems) do
+		for _,v in pairs(vendorAddon.tRepairableItems) do
 			total = total + v.itemData:GetRepairCost()
 		end 
 		
@@ -217,7 +243,7 @@ function VendorRepair:GetDialogDetails(tPurchaseData)
 	local tCallbackData = tPurchaseData.tCallbackData
 	local monPrice = tPurchaseData.monPrice		
 	
-	local tItemData = tCallbackData.hookParams
+	local tItemData = tCallbackData.hookParams[1]
 	local wnd
 	
 	if tItemData then
@@ -227,7 +253,7 @@ function VendorRepair:GetDialogDetails(tPurchaseData)
 		wnd:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
 		wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
 		wnd:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
-		wnd:FindChild("CantUse"):Show(vendor:HelperPrereqFailed(tItemData))
+		wnd:FindChild("CantUse"):Show(vendorAddon:HelperPrereqFailed(tItemData))
 					
 		-- Extract item quality
 		local eQuality = tonumber(Item.GetDetailedInfo(tItemData).tPrimary.eQuality)
@@ -243,7 +269,7 @@ function VendorRepair:GetDialogDetails(tPurchaseData)
 
 		-- Update tooltip to match current item
 		wnd:SetData(tItemData)	
-		vendor:OnVendorListItemGenerateTooltip(wnd, wnd)				
+		vendorAddon:OnVendorListItemGenerateTooltip(wnd, wnd)				
 	else
 		-- All items repair
 		wnd = module.wndAll
