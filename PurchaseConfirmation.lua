@@ -47,7 +47,10 @@ end
 function PurchaseConfirmation:Init()
 	local bHasConfigureFunction = true
 	local strConfigureButtonText = "Purchase Conf."
-	local tDependencies = {}
+	local tDependencies = {
+		"Vendor", "Housing", "Costumes",
+		"ViragsMultibuyer", "LilVendor", "SpaceStashBank"
+	}
 	
 	-- Shared forms, re-used by modules
 	self.eDetailForms = {
@@ -57,6 +60,10 @@ function PurchaseConfirmation:Init()
 	self.tDetailForms = {}
 	
 	Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
+end
+
+function PurchaseConfirmation:OnDependencyError()	
+	return true
 end
  
 -- Called when addon loaded, sets up default config and variables, initializes XML form loading
@@ -167,7 +174,7 @@ function PurchaseConfirmation:OnDocLoaded()
 	self.tSettings = self.settingsModule:RestoreSettings(self.tSavedSettings)
 	self.tSavedSettings = nil
 	
-	-- Activate modules, as specified in Settings
+	-- Activate modules
 	self:UpdateModuleStatus()
 		
 	-- If running debug-mode, warn user (should never make it into production)

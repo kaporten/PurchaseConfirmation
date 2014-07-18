@@ -18,7 +18,7 @@ local VendorRepair = {
 Apollo.RegisterPackage(VendorRepair, VendorRepair.MODULE_ID, 1, {"PurchaseConfirmation"})
 
 -- "glocals" set during Init
-local addon, module, hookedAddon, vendorAddon, log
+local addon, module, vendorAddon, log
 
 -- Copied from the Util addon. Used to set item quality borders on the confirmation dialog
 -- TODO: Figure out how to use list in Util addon itself.
@@ -49,8 +49,7 @@ function VendorRepair:Init()
 	module = self -- Current module
 	log = addon.log
 
-	-- Determine which combination of (Vendor|LilVendor)[ViragsMultibuyer] we're running
-	self.bViragsMultibuyer = Apollo.GetAddon("ViragsMultibuyer") ~= nil
+	-- Determine if Vendor or LilVendor is in use
 	self.bVendor = Apollo.GetAddon("Vendor") ~= nil
 	self.bLilVendor = Apollo.GetAddon("LilVendor") ~= nil
 	
@@ -62,21 +61,11 @@ function VendorRepair:Init()
 		error(self.strFailureMessage)
 	end
 		
-	-- If ViragsMultibyer is present, hook on that, otherwise hook on underlying vendor
-	self.strAddonToHook = self.bViragsMultibuyer and "ViragsMultibuyer" or self.strVendorAddon
-
 	-- Determine vendor window-variable name
 	self.strVendorFrame = "wnd" .. self.strVendorAddon -- "wndVendor" or "wndLilVendor"		
 
-	-- References to actual addons. Will be the same addon if ViragsMultibuyer is not installed.
-	hookedAddon = Apollo.GetAddon(self.strAddonToHook)
+	-- Actual reference to vendor addon
 	vendorAddon = Apollo.GetAddon(self.strVendorAddon)
-	
-	-- Just-in-case. Should not happen unless I borked the logic above.
-	if hookedAddon == nil or vendorAddon == nil then
-		self.strErrorMessage = "Internal error, hookedAddon or VendorAddon not found"
-		error(self.strErrorMessage)
-	end
 			
 	-- Ensures an open confirm dialog is closed when leaving vendor range
 	-- NB: register the event so that it is fired on main addon, not this wrapper
@@ -124,8 +113,8 @@ end
 function VendorRepair:Activate()
 	if module.hook == nil then
 		log:info("Activating module: " .. module.MODULE_ID)
-		module.hook = hookedAddon.FinalizeBuy
-		hookedAddon.FinalizeBuy = module.Intercept
+		module.hook = vendorAddon.FinalizeBuy
+		vendorAddon.FinalizeBuy = module.Intercept
 	else
 		log:debug("Module " .. module.MODULE_ID .. " already active, ignoring Activate request")
 	end
@@ -134,7 +123,7 @@ end
 function VendorRepair:Deactivate()
 	if module.hook ~= nil then
 		log:info("Deactivating module: " .. module.MODULE_ID)
-		hookedAddon.FinalizeBuy = module.hook
+		vendorAddon.FinalizeBuy = module.hook
 		module.hook = nil
 	else
 		log:debug("Module " .. module.MODULE_ID .. " not active, ignoring Deactivate request")
