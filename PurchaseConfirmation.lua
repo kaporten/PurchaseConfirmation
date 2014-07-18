@@ -20,7 +20,7 @@ require "Item"
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
-PurchaseConfirmation.ADDON_VERSION = {7, 1, 0} -- major, minor, bugfix
+PurchaseConfirmation.ADDON_VERSION = {8, 0, 0} -- major, minor, bugfix
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
@@ -94,11 +94,9 @@ function PurchaseConfirmation:OnLoad()
 	self.moduleNames = {		
 		"PurchaseConfirmation:CostumesDye",
 		"PurchaseConfirmation:HousingBuyToCrate",
-		"PurchaseConfirmation:LilVendorPurchase",
 		"PurchaseConfirmation:SpaceStashBankSlot",
 		"PurchaseConfirmation:VendorPurchase",
 		"PurchaseConfirmation:VendorRepair",
-		"PurchaseConfirmation:ViragsMultibuyerPurchase",
 	}
 			
 	-- Load the XML file and await callback

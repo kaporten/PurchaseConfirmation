@@ -20,8 +20,6 @@
     <Form Name="HousingBuyToCrate.xml"/>
     <Script Name="SpaceStashBankSlot.lua"/>
     <Form Name="SpaceStashBankSlot.xml"/>
-    <Script Name="LilVendorPurchase.lua"/>
-	<Script Name="ViragsMultibuyerPurchase.lua"/>
     <!-- Addon itself -->
     <Script Name="PurchaseConfirmation.lua"/>
     <Form Name="PurchaseConfirmation.xml"/>
