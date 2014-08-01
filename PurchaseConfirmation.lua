@@ -301,24 +301,16 @@ function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
 	self.wndDialog:FindChild("DialogArea"):FindChild("PurchaseButton"):SetText(strConfirm)
 	self.wndDialog:FindChild("DialogArea"):FindChild("CancelButton"):SetText(strCancel)
 	
-	
 	-- Override dialog position from settings, if present
 	local nLeft, nTop, nRight, nBottom = self.wndDialog:GetAnchorOffsets() -- Default: preserve position
 	local tDialogPosition = self.tSettings.Modules[tPurchaseData.tCallbackData.module.MODULE_ID].tPosition
---	log:fatal("Dialog position1. Left=%d, Top=%d, Right=%d, Bottom=%d", nLeft, nTop, nRight, nBottom)
 	if tDialogPosition ~= nil then
-		--log:fatal("Restoring position")
 		nLeft = tDialogPosition.left or nLeft
 		nTop = tDialogPosition.top or nTop
 		nRight = tDialogPosition.right or nRight
 		nBottom = tDialogPosition.bottom or nBottom
 	end
-	--log:fatal("Dialog position2. Left=%d, Top=%d, Right=%d, Bottom=%d", nLeft, nTop, nRight, nBottom)
 	self.wndDialog:SetAnchorOffsets(nLeft, nTop, nRight, nBottom)
-	-- todo: anchor relative to module window
-	if tPurchaseData.tCallbackData.anchorWindow ~= nil then
-		self.wndDialog:SetAnchorWindow(tPurchaseData.tCallbackData.anchorWindow)
-	end
 	
 	-- Show dialog, await button click	
 	self.wndDialog:ToFront()
