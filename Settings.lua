@@ -280,85 +280,19 @@ function Settings:RestoreSettings(tSavedData)
 	]]
 	local tSettings = self:DefaultSettings()
 	
+	-- Override default values with saved data, if present
 	if tSavedData ~= nil then
-		self:FillSettings_0_7(tSettings, tSavedData) -- ver 0.7 single-currency settings
-		self:FillSettings_0_8(tSettings, tSavedData) -- ver 0.8+ multi-currency settings
-		self:FillSettings_2_3(tSettings, tSavedData) -- ver 2.3+ multi-currency + modules
+		self:FillSettings(tSettings, tSavedData)
 	end
 	
 	return tSettings
 end
--- Addonv 0.7 settings; "flat", and only supports Credits.
-function Settings:FillSettings_0_7(tSettings, tSavedData)
-	log:debug("Restoring v0.7-style saved settings")
-	if type(tSavedData) == "table" then -- should be outer settings table
-		local tTarget = tSettings.Currencies.Credits
-	
-		-- Fixed
-		if type(tSavedData.bFixedThresholdEnabled) == "boolean" then tTarget.tFixed.bEnabled = tSavedData.bFixedThresholdEnabled end
-		if type(tSavedData.monFixedThreshold) == "number" then tTarget.tFixed.monThreshold = tSavedData.monFixedThreshold end
 
-		-- Empty coffers
-		if type(tSavedData.bEmptyCoffersThresholdEnabled) == "boolean" then tTarget.tEmptyCoffers.bEnabled = tSavedData.bEmptyCoffersThresholdEnabled end
-		if type(tSavedData.nPercentEmptyCoffers) == "number" then tTarget.tEmptyCoffers.nPercent = tSavedData.nPercentEmptyCoffers end
-				
-		-- Average
-		if type(tSavedData.bAverageThresholdEnabled) == "boolean" then tTarget.tAverage.bEnabled = tSavedData.bAverageThresholdEnabled end
-		if type(tSavedData.nPercentAboveAverage) == "number" then tTarget.tAverage.nPercent = tSavedData.nPercentAboveAverage end
-		if type(tSavedData.seqPriceHistory) == "table" then tTarget.tAverage.seqPriceHistory = tSavedData.seqPriceHistory end
-		if type(tSavedData.monAverageThreshold) == "boolean" then tTarget.tAverage.monAmount = tSavedData.monAverageThreshold end
-		if type(tSavedData.nPriceHistorySize) == "number" then tTarget.tAverage.nHistorySize = tSavedData.nPriceHistorySize end
-		
-		-- Puny
-		if type(tSavedData.monPunyLimitPerLevel) == "number" then tTarget.tPuny.monAmount = tSavedData.monPunyLimitPerLevel end		
-	end	
-end
-
-
--- Addon v0.8 settings; "layered", and supports multiple currencies
-function Settings:FillSettings_0_8(tSettings, tSavedData)
-	log:debug("Restoring v0.8-style saved settings")
-	if type(tSavedData) == "table" then -- should be outer settings table	
-		for _,v in ipairs(addon.seqCurrencies) do
-			if type(tSavedData[v.strName]) == "table" then -- should be individual currency table table
-				local tSaved = tSavedData[v.strName] -- assumed present in default settings
-				local tTarget = tSettings.Currencies[v.strName]
-				
-				-- Guess these data were not meant for me...
-				if tSaved == nil or tTarget == nil then return end
-				
-				if type(tSaved.tFixed) == "table" then -- does fixed section exist?
-					if type(tSaved.tFixed.bEnabled) == "boolean" then tTarget.tFixed.bEnabled = tSaved.tFixed.bEnabled end
-					if type(tSaved.tFixed.monThreshold) == "number" then tTarget.tFixed.monThreshold = tSaved.tFixed.monThreshold end
-				end
-				
-				if type(tSaved.tEmptyCoffers) == "table" then
-					if type(tSaved.tEmptyCoffers.bEnabled) == "boolean" then tTarget.tEmptyCoffers.bEnabled = tSaved.tEmptyCoffers.bEnabled end
-					if type(tSaved.tEmptyCoffers.nPercent) == "number" then tTarget.tEmptyCoffers.nPercent = tSaved.tEmptyCoffers.nPercent end
-				end
-				
-				if type(tSaved.tAverage) == "table" then
-					if type(tSaved.tAverage.bEnabled) == "boolean" then tTarget.tAverage.bEnabled = tSaved.tAverage.bEnabled end
-					if type(tSaved.tAverage.monThreshold) == "number" then tTarget.tAverage.monThreshold = tSaved.tAverage.monThreshold end
-					if type(tSaved.tAverage.nPercent) == "number" then tTarget.tAverage.nPercent = tSaved.tAverage.nPercent end
-					if type(tSaved.tAverage.nHistorySize) == "number" then tTarget.tAverage.nHistorySize = tSaved.tAverage.nHistorySize end
-					if type(tSaved.tAverage.seqPriceHistory) == "table" then tTarget.tAverage.seqPriceHistory = tSaved.tAverage.seqPriceHistory end
-				end
-
-				if type(tSaved.tPuny) == "table" then
-					if type(tSaved.tPuny.bEnabled) == "boolean" then tTarget.tPuny.bEnabled = tSaved.tPuny.bEnabled end
-					if type(tSaved.tPuny.monThreshold) == "number" then tTarget.tPuny.monThreshold = tSaved.tPuny.monThreshold end
-				end	
-			end
-		end
-	end
-end
-
--- Addon v2.3 settings; "layered", and supports multiple currencies
-function Settings:FillSettings_2_3(tSettings, tSavedData)
+function Settings:FillSettings(tSettings, tSavedData)
 	log:debug("Restoring v2.3-style saved settings")
 	if type(tSavedData) == "table" then -- should be outer settings table	
-
+	
+		-- Per-currency configuration
 		if type(tSavedData.Currencies) == "table" then
 			for _,v in ipairs(addon.seqCurrencies) do
 				if type(tSavedData.Currencies[v.strName]) == "table" then -- should be individual currency table table
@@ -391,12 +325,17 @@ function Settings:FillSettings_2_3(tSettings, tSavedData)
 			end
 		end
 		
-		-- Only storing a boolean indicator for module config, so far at least. 
+		-- Per-module configuration
 		if type(tSavedData.Modules) == "table" then
 			for _,moduleName in pairs(addon.moduleNames) do
 				if type(tSavedData.Modules[moduleName]) == "table" then
 					local moduleSettings = tSavedData.Modules[moduleName]
+					
+					-- Enable-boolean
 					if type(moduleSettings.bEnabled) == "boolean" then tSettings.Modules[moduleName].bEnabled = moduleSettings.bEnabled end
+					
+					-- Saved dialog position
+					if type(moduleSettings.tPosition) == "table" then tSettings.Modules[moduleName].tPosition = moduleSettings.tPosition end
 				end
 			end
 		end	

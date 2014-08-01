@@ -20,7 +20,7 @@ require "Item"
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
-PurchaseConfirmation.ADDON_VERSION = {8, 0, 0} -- major, minor, bugfix
+PurchaseConfirmation.ADDON_VERSION = {8, 1, 0} -- major, minor, bugfix
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
@@ -301,13 +301,32 @@ function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
 	self.wndDialog:FindChild("DialogArea"):FindChild("PurchaseButton"):SetText(strConfirm)
 	self.wndDialog:FindChild("DialogArea"):FindChild("CancelButton"):SetText(strCancel)
 	
-	-- Show dialog, await button click
+	
+	-- Override dialog position from settings, if present
+	local nLeft, nTop, nRight, nBottom = self.wndDialog:GetAnchorOffsets() -- Default: preserve position
+	local tDialogPosition = self.tSettings.Modules[tPurchaseData.tCallbackData.module.MODULE_ID].tPosition
+--	log:fatal("Dialog position1. Left=%d, Top=%d, Right=%d, Bottom=%d", nLeft, nTop, nRight, nBottom)
+	if tDialogPosition ~= nil then
+		--log:fatal("Restoring position")
+		nLeft = tDialogPosition.left or nLeft
+		nTop = tDialogPosition.top or nTop
+		nRight = tDialogPosition.right or nRight
+		nBottom = tDialogPosition.bottom or nBottom
+	end
+	--log:fatal("Dialog position2. Left=%d, Top=%d, Right=%d, Bottom=%d", nLeft, nTop, nRight, nBottom)
+	self.wndDialog:SetAnchorOffsets(nLeft, nTop, nRight, nBottom)
+	-- todo: anchor relative to module window
+	if tPurchaseData.tCallbackData.anchorWindow ~= nil then
+		self.wndDialog:SetAnchorWindow(tPurchaseData.tCallbackData.anchorWindow)
+	end
+	
+	-- Show dialog, await button click	
 	self.wndDialog:ToFront()
 	self.wndDialog:Show(true, false)
 end
 
 
---- Called when a purchase should be fully completed against "bakcend" addon.
+--- Called when a purchase should be fully completed against "backend" addon.
 -- @param tCallbackData hook/data structure supplied by addon-wrapper which initiated the purchase
 function PurchaseConfirmation:CompletePurchase(tCallbackData)
 	log:debug("CompletePurchase: enter method")	
@@ -475,11 +494,19 @@ function PurchaseConfirmation:OnConfirmPurchase()
 	-- Purchase is confirmed, update history and complete against backend module
 	self:UpdateAveragePriceHistory(tCurrencySettings, tPurchaseData.monPrice)
 	self:CompletePurchase(tPurchaseData.tCallbackData)
+	
+	-- Update dialog position in settings
+	local left, top, right, bottom = self.wndDialog:GetAnchorOffsets()	
+	self.tSettings.Modules[self.wndDialog:GetData().tCallbackData.module.MODULE_ID].tPosition = {left = left, top = top, right = right, bottom = bottom}
 end
 
 -- when the Cancel button is clicked
 function PurchaseConfirmation:OnCancelPurchase()
 	self.wndDialog:Show(false, true)
+	
+	-- Update dialog position in settings
+	local left, top, right, bottom = self.wndDialog:GetAnchorOffsets()	
+	self.tSettings.Modules[self.wndDialog:GetData().tCallbackData.module.MODULE_ID].tPosition = {left = left, top = top, right = right, bottom = bottom}
 end
 
 ---------------------------------------------------------------------------------------------------
