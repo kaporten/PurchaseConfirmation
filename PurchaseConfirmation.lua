@@ -32,8 +32,7 @@ local log
 -- GeminiLocale
 local locale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage:GetLocale("PurchaseConfirmation")
  
--- Height of the details-foldout
-local FOLDOUT_HEIGHT = 100
+local PC -- quick ref used for PurchaseConfirmation within hooked functions
 
 -- Standard object instance creation
 function PurchaseConfirmation:new(o)
@@ -54,12 +53,13 @@ function PurchaseConfirmation:Init()
 	
 	-- Shared forms, re-used by modules
 	self.eDetailForms = {
-		StandardItem = "StandardItem",
-		SimpleIcon = "SimpleIcon"
+		StandardItem = "DetailsStandardItemForm",
+		SimpleIcon = "DetailsSimpleIconForm"
 	}
 	self.tDetailForms = {}
 	
 	Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
+	PC = self
 end
 
 function PurchaseConfirmation:OnDependencyError()	
@@ -71,7 +71,7 @@ function PurchaseConfirmation:OnLoad()
 
 	-- GeminiLogger options
 	local opt = {
-		level = "FATAL",
+		level = "INFO",
 		pattern = "%d %n %c %l - %m",
 		appender = "GeminiConsole"
 	}
@@ -121,20 +121,18 @@ function PurchaseConfirmation:OnDocLoaded()
 	end
 		
 	-- Load confirmation dialog form 
-	self.wndDialog = Apollo.LoadForm(self.xmlDoc, "DialogForm", nil, self)
+	--self.wndDialog = Apollo.LoadForm(self.xmlDoc, "DialogForm", nil, self)
 	
 	-- Load common detail-panels (TODO: Rewire modules to use these, instead of having to do their own form-loading)
-	self.tDetailForms[self.eDetailForms.StandardItem] = Apollo.LoadForm(self.xmlDoc, "DetailsStandardItemForm", self.wndDialog:FindChild("VendorSpecificArea"), self)
-	self.tDetailForms[self.eDetailForms.SimpleIcon] = Apollo.LoadForm(self.xmlDoc, "DetailsSimpleIconForm", self.wndDialog:FindChild("VendorSpecificArea"), self)
+	--self.tDetailForms[self.eDetailForms.StandardItem] = Apollo.LoadForm(self.xmlDoc, "DetailsStandardItemForm", self.wndDialog:FindChild("VendorSpecificArea"), self)
+	--self.tDetailForms[self.eDetailForms.SimpleIcon] = Apollo.LoadForm(self.xmlDoc, "DetailsSimpleIconForm", self.wndDialog:FindChild("VendorSpecificArea"), self)
 
-	self:LocalizeDialog(self.wndDialog)
+	--self:LocalizeDialog(self.wndDialog)
 	
-	-- Dialog form has details-foldout enabled in Hudson for editability. Collapse it by default
-	self:OnDetailsButtonUncheck()
-	self.wndDialog:Show(false, true)	
+	
 			
 	-- Now that forms are loaded, remove XML doc for gc
-	self.xmlDoc = nil
+	--self.xmlDoc = nil
 
 	--[[
 		Settings vs regular module load-order is important...
@@ -190,6 +188,71 @@ function PurchaseConfirmation:LocalizeDialog(wnd)
 	wnd:FindChild("FoldoutArea"):FindChild("ThresholdFixed"):FindChild("Label"):SetText(locale["Dialog_DetailsLabel_Fixed"])
 	wnd:FindChild("FoldoutArea"):FindChild("ThresholdAverage"):FindChild("Label"):SetText(locale["Dialog_DetailsLabel_Average"])
 	wnd:FindChild("FoldoutArea"):FindChild("ThresholdEmptyCoffers"):FindChild("Label"):SetText(locale["Dialog_DetailsLabel_EmptyCoffers"])
+end
+
+-- Finds or loads a dialog form with the specified parent (vendor) window
+function PurchaseConfirmation:GetDialogForm(moduleId, wndParent)
+	if wndParent == nil then
+		log:fatal("nil input to GetDialogForm")
+		return
+	end
+
+	PC.tDialogForms = PC.tDialogForms or {}
+	if PC.tDialogForms[moduleId] == nil then
+		log:info("Instantiating new Dialog form for parent window '%s'", wndParent:GetName())
+
+		-- First time a dialog under this parent was needed, instantiate
+		PC.tDialogForms[moduleId] = {}		
+		PC.tDialogForms[moduleId].tDetailForms = {} -- room for multiple detail windows		
+		
+		-- Load form
+		local wndDialog = Apollo.LoadForm(PC.xmlDoc, "DialogForm", wndParent, PC)		
+		if wndDialog == nil then
+			log:fatal("Could not instantiate new dialog form")
+			return
+		end
+		
+		-- Add to list of instantiated dialog windows
+		PC.tDialogForms[moduleId].wndDialog = wndDialog
+				
+		-- Localize loaded dialog
+		PC:LocalizeDialog(wndDialog)
+		
+		-- Attach foldout window to details button
+		wndDialog:FindChild("DetailsButton"):AttachWindow(wndDialog:FindChild("FoldoutArea"))
+		
+		-- Update position to last saved one
+		local p = PC.tSettings.Modules[moduleId].tPosition
+		wndDialog:SetAnchorOffsets(p.left, p.top, p.right, p.bottom)
+	end
+	
+	-- Return dialog to use
+	return PC.tDialogForms[moduleId].wndDialog
+end
+
+-- Finds or loads a detail-window under the specified parent (vendor) window's dialog
+function PurchaseConfirmation:GetDetailsForm(moduleId, wndParent, eDetailForm)
+	if wndParent == nil then
+		log:fatal("nil input to GetDetailsForm!")
+		return
+	end
+
+	-- Double purpose: load the dialog form itself if not already done, and get the actual ref to use later
+	local wndDialog = PC:GetDialogForm(moduleId, wndParent)
+	
+	if wndDialog == nil then
+		log:fatal("Dialog form not found for parent-window")
+		return
+	end
+
+	-- Instantiate details window if not already done
+	if PC.tDialogForms[moduleId].tDetailForms[eDetailForm] == nil then
+		log:info("Instantiating new '%s'-Details form for %s", eDetailForm, wndParent:GetName())
+		PC.tDialogForms[moduleId].tDetailForms[eDetailForm] = 
+			Apollo.LoadForm(PC.xmlDoc, eDetailForm, wndDialog:FindChild("VendorSpecificArea"), PC)
+	end
+	
+	return PC.tDialogForms[moduleId].tDetailForms[eDetailForm]
 end
 
 --- Called by addon-hook when a purchase is taking place.
@@ -263,26 +326,33 @@ function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
 	local monPrice = tPurchaseData.monPrice
 	local tCurrency = tPurchaseData.tCurrency
 	
-	-- Prepare central details area	
+	-- Prepare central details area		
 	local wndDetails, tStrings = tCallbackData.module:GetDialogDetails(tPurchaseData)
-	self.testwnd = wndDetails
+	
+	-- Hide all other dialogs from other modules
+	for k,v in pairs(PC.tDialogForms) do
+		v.wndDialog:Show(tCallbackData.module.MODULE_ID == k)
+	end
+	
+	local wndDialog = PC.tDialogForms[tCallbackData.module.MODULE_ID].wndDialog
 	
 	-- Hide all detail children
-	local children = self.wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea"):GetChildren()
+	local children = wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea"):GetChildren()
 	for _,v in pairs(children) do
 		-- ... except vendor-specific info for the module which caused this price check
-		v:Show(false, true)
+		--v:Show(false, true)
 	end
 	wndDetails:Show(true, true)
 	
 	-- Prepare foldout area	
-	local wndFoldout = self.wndDialog:FindChild("FoldoutArea")
-	self:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdFixed"), 		tThresholds.fixed, 			tCurrency)
-	self:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdAverage"),		tThresholds.average, 		tCurrency)
-	self:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdEmptyCoffers"), 	tThresholds.emptyCoffers, 	tCurrency)
+	local wndFoldout = wndDialog:FindChild("FoldoutArea")
+	PC:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdFixed"), 		tThresholds.fixed, 			tCurrency)
+	PC:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdAverage"),		tThresholds.average, 		tCurrency)
+	PC:UpdateConfirmationDetailsLine(wndFoldout:FindChild("ThresholdEmptyCoffers"), 	tThresholds.emptyCoffers, 	tCurrency)
 		
-	-- Set full purchase data on dialog window
-	self.wndDialog:SetData(tPurchaseData)
+	-- Set full purchase data on dialog window & button for easy access
+	wndDialog:SetData(tPurchaseData)
+	wndDialog:FindChild("PurchaseButton"):SetData(tPurchaseData)
 	
 	-- Default text values for dialog
 	local strTitle = Apollo.GetString("CRB_Confirm") .. " " .. Apollo.GetString("CRB_Purchase") -- "Confirm Purchase"
@@ -297,24 +367,13 @@ function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
 	end
 
 	-- Set texts on dialog
-	self.wndDialog:FindChild("DialogArea"):FindChild("WindowTitle"):SetText(strTitle)
-	self.wndDialog:FindChild("DialogArea"):FindChild("PurchaseButton"):SetText(strConfirm)
-	self.wndDialog:FindChild("DialogArea"):FindChild("CancelButton"):SetText(strCancel)
-	
-	-- Override dialog position from settings, if present
-	local nLeft, nTop, nRight, nBottom = self.wndDialog:GetAnchorOffsets() -- Default: preserve position
-	local tDialogPosition = self.tSettings.Modules[tPurchaseData.tCallbackData.module.MODULE_ID].tPosition
-	if tDialogPosition ~= nil then
-		nLeft = tDialogPosition.left or nLeft
-		nTop = tDialogPosition.top or nTop
-		nRight = tDialogPosition.right or nRight
-		nBottom = tDialogPosition.bottom or nBottom
-	end
-	self.wndDialog:SetAnchorOffsets(nLeft, nTop, nRight, nBottom)
-	
+	wndDialog:FindChild("DialogArea"):FindChild("WindowTitle"):SetText(strTitle)
+	wndDialog:FindChild("DialogArea"):FindChild("PurchaseButton"):SetText(strConfirm)
+	wndDialog:FindChild("DialogArea"):FindChild("CancelButton"):SetText(strCancel)
+		
 	-- Show dialog, await button click	
-	self.wndDialog:ToFront()
-	self.wndDialog:Show(true, false)
+	wndDialog:ToFront()
+	wndDialog:Show(true, false)
 end
 
 
@@ -467,64 +526,31 @@ function PurchaseConfirmation:UpdateModuleStatus()
 	end
 end
 
---function PurchaseConfirmation:
-
-
 ---------------------------------------------------------------------------------------------------
 -- Purchase confirmation dialog confirm/cancel button responses
 ---------------------------------------------------------------------------------------------------
 
 -- when the Purchase button is clicked
-function PurchaseConfirmation:OnConfirmPurchase()	
-	-- Hide dialog and register confirmed purchase
-	self.wndDialog:Show(false, true)
-	
+function PurchaseConfirmation:OnConfirmPurchase(wndHandler, wndControl)	
 	-- Extract item being purchased, and delegate to Vendor
-	local tPurchaseData = self.wndDialog:GetData()
+	local tPurchaseData = wndControl:GetData()
+	
+	-- Hide dialog
+	PC.tDialogForms[tPurchaseData.tCallbackData.module.MODULE_ID].wndDialog:Show(false, true)
+	
 	local tCurrencySettings = self.tSettings.Currencies[tPurchaseData.tCurrency.strName]
 	
 	-- Purchase is confirmed, update history and complete against backend module
 	self:UpdateAveragePriceHistory(tCurrencySettings, tPurchaseData.monPrice)
-	self:CompletePurchase(tPurchaseData.tCallbackData)
-	
-	-- Update dialog position in settings
-	local left, top, right, bottom = self.wndDialog:GetAnchorOffsets()	
-	self.tSettings.Modules[self.wndDialog:GetData().tCallbackData.module.MODULE_ID].tPosition = {left = left, top = top, right = right, bottom = bottom}
+	self:CompletePurchase(tPurchaseData.tCallbackData)	
 end
 
 -- when the Cancel button is clicked
-function PurchaseConfirmation:OnCancelPurchase()
-	self.wndDialog:Show(false, true)
-	
-	-- Update dialog position in settings
-	local left, top, right, bottom = self.wndDialog:GetAnchorOffsets()	
-	self.tSettings.Modules[self.wndDialog:GetData().tCallbackData.module.MODULE_ID].tPosition = {left = left, top = top, right = right, bottom = bottom}
-end
-
----------------------------------------------------------------------------------------------------
--- Purchase confirmation dialog details-foldout show/hide/configure button responses
----------------------------------------------------------------------------------------------------
-
---- When checking the details button, hide the details panel
-function PurchaseConfirmation:OnDetailsButtonUncheck( wndHandler, wndControl, eMouseButton )
-	-- Resize the main window frame so that it is not possible to drag it around via the hidden details section
-	local left, top, right, bottom = self.wndDialog:GetAnchorOffsets()
-	bottom = bottom - FOLDOUT_HEIGHT
-	self.wndDialog:SetAnchorOffsets(left, top, right, bottom)
-	
-	local foldout = self.wndDialog:FindChild("FoldoutArea")
-	foldout:Show(false, true)
-end
-
---- When checking the details button, show the details panel
-function PurchaseConfirmation:OnDetailsButtonCheck( wndHandler, wndControl, eMouseButton )
-	-- Resize the main window frame so that it is possible to drag it around via the hidden details section
-	local left, top, right, bottom = self.wndDialog:GetAnchorOffsets()
-	bottom = bottom + FOLDOUT_HEIGHT
-	self.wndDialog:SetAnchorOffsets(left, top, right, bottom)
-
-	local foldout = self.wndDialog:FindChild("FoldoutArea")
-	foldout:Show(true, true)
+function PurchaseConfirmation:OnCancelPurchase(wndHandler, wndControl)
+	-- Hide all forms (easier than diggout out proper one)
+	for _,d in pairs(PC.tDialogForms) do
+		d.wndDialog:Show(false, true)
+	end
 end
 
 --- Clicking the detail-panel configure button opens the config
@@ -565,6 +591,17 @@ function PurchaseConfirmation:OnRestore(eType, tSavedData)
 	self.tSavedSettings = tSavedData
 end
 
+
+---------------------------------------------------------------------------------------------------
+-- DialogForm Functions
+---------------------------------------------------------------------------------------------------
+
+function PurchaseConfirmation:OnWindowMove(wndHandler, wndControl, nOldLeft, nOldTop, nOldRight, nOldBottom)
+	-- Update position of this dialog
+	local left, top, right, bottom = wndControl:GetAnchorOffsets()
+	--log:debug("Moved to left=%d, top=%d, right:%d, bottom:%d", left, top, right, bottom)	
+	self.tSettings.Modules[wndControl:GetData().tCallbackData.module.MODULE_ID].tPosition = {left = left, top = top, right = right, bottom = bottom}
+end
 
 -----------------------------------------------------------------------------------------------
 -- PurchaseConfirmation Instance

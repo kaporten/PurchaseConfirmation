@@ -212,8 +212,10 @@ function VendorPurchase:GetDialogDetails(tPurchaseData)
 	local monPrice = tPurchaseData.monPrice	
 	
 	local tItemData = tCallbackData.hookParams[1]
-	local wnd = addon.tDetailForms[addon.eDetailForms.StandardItem]
-		
+	
+	-- Get standard detail form for a dialog with Vendor as parent
+	local wnd = addon:GetDetailsForm(module.MODULE_ID, vendorAddon[module.strVendorFrame], addon.eDetailForms.StandardItem)
+	
 	-- Set basic info on details area
 	wnd:FindChild("ItemName"):SetText(tItemData.strName)
 	wnd:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
