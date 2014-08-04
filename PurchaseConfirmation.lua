@@ -72,7 +72,7 @@ function PurchaseConfirmation:OnLoad()
 
 	-- GeminiLogger options
 	local opt = {
-		level = "INFO",
+		level = "FATAL",
 		pattern = "%d %n %c %l - %m",
 		appender = "GeminiConsole"
 	}
