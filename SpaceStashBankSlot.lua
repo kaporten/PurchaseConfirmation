@@ -46,34 +46,8 @@ function SpaceStashBankSlot:Init()
 	-- Ensures an open confirm dialog is closed when leaving vendor range
 	-- NB: register the event so that it is fired on main addon, not this wrapper
 	Apollo.RegisterEventHandler("HideBank", "OnCancelPurchase", addon)
-	
-	self.xmlDoc = XmlDoc.CreateFromFile("SpaceStashBankSlot.xml")
-	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
-	
-	return self
-end
 
-function SpaceStashBankSlot:OnDocLoaded()	
-	-- Check that XML document is properly loaded
-	if module.xmlDoc == nil or not module.xmlDoc:IsLoaded() then
-		Apollo.AddAddonErrorText(module, "XML document was not loaded")
-		log:error("XML document was not loaded")
-		return
-	end
-		
-	-- Bank slot confirmation details
-	local parent = addon.wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea")
-	module.wndItem  = Apollo.LoadForm(module.xmlDoc, "BankSlotForm", parent, module)
-	if module.wndItem == nil then
-		Apollo.AddAddonErrorText(module, "Could not load the BankSlotFormwindow")
-		log:error("OnDocLoaded: wndItem is nil!")
-		return
-	end
-		
-	module.wndItem:Show(false, true)	
-	module.xmlDoc = nil
-	
-	log:info("Module " .. module.MODULE_ID .. " fully loaded")
+	return self
 end
 
 function SpaceStashBankSlot:Activate()
@@ -146,11 +120,14 @@ function SpaceStashBankSlot:GetDialogDetails(tPurchaseData)
 
 	local tCallbackData = tPurchaseData.tCallbackData
 	local monPrice = tPurchaseData.monPrice		
-		
-	local wnd = module.wndItem
-	wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
-	wnd:FindChild("ItemPrice"):SetMoneySystem(tPurchaseData.tCurrency.eType)		
-		
+			
+	local wnd = addon:GetDetailsForm(module.MODULE_ID, spacestash.wndMain, addon.eDetailForms.SimpleIcon)
+
+	wnd:FindChild("Text"):SetText(Apollo.GetString("Bank_BuySlotBtn"))
+	wnd:FindChild("Icon"):SetSprite("IconSprites:Icon_ItemMisc_Bag_10Slot")
+	wnd:FindChild("Price"):SetAmount(monPrice, true)
+	wnd:FindChild("Price"):SetMoneySystem(tPurchaseData.tCurrency.eType)
+	
 	return wnd
 end
 

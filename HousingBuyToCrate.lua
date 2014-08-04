@@ -57,33 +57,7 @@ function HousingBuyToCrate:Init()
 		error(self.strFailureMessage)
 	end	
 	
-	self.xmlDoc = XmlDoc.CreateFromFile("HousingBuyToCrate.xml")
-	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
-	
 	return self
-end
-
-function HousingBuyToCrate:OnDocLoaded()	
-	-- Check that XML document is properly loaded
-	if module.xmlDoc == nil or not module.xmlDoc:IsLoaded() then
-		Apollo.AddAddonErrorText(module, "XML document was not loaded")
-		log:error("XML document was not loaded")
-		return
-	end
-		
-	-- Load Vendor item purchase details form
-	local parent = addon.wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea")
-	module.wnd = Apollo.LoadForm(module.xmlDoc, "ItemLineForm", parent, module)
-	if module.wnd == nil then
-		Apollo.AddAddonErrorText(module, "Could not load the ConfirmDialog window")
-		log:error("OnDocLoaded: wndConfirmDialog is nil!")
-		return
-	end
-	
-	module.wnd:Show(true, true)	
-	module.xmlDoc = nil
-	
-	log:info("Module " .. module.MODULE_ID .. " fully loaded")
 end
 
 function HousingBuyToCrate:Activate()
@@ -178,7 +152,7 @@ function HousingBuyToCrate:GetDialogDetails(tPurchaseData)
 	local tItemData = tPurchaseData.tCallbackData.tItemData
 	local monPrice = tPurchaseData.monPrice	
 	
-	local wnd = module.wnd
+	local wnd = addon:GetDetailsForm(module.MODULE_ID, housing.wndDecorate, addon.eDetailForms.Preview)
 	
 	-- Set basic info on details area
 	wnd:FindChild("ItemName"):SetText(tItemData.strName)

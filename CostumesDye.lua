@@ -127,7 +127,8 @@ function CostumesDye:GetDialogDetails(tPurchaseData)
 
 	local tCallbackData = tPurchaseData.tCallbackData
 	local monPrice = tPurchaseData.monPrice
-	local wnd = addon.tDetailForms[addon.eDetailForms.SimpleIcon]
+	
+	local wnd = addon:GetDetailsForm(module.MODULE_ID, costumes.wndMain, addon.eDetailForms.SimpleIcon)
 	
 	wnd:FindChild("Text"):SetText(Apollo.GetString("Dyeing_WindowTitle"))
 	wnd:FindChild("Icon"):SetSprite("IconSprites:Icon_ItemDyes_UI_Item_Dye_BlueGreen_Primary_000")

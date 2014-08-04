@@ -70,44 +70,8 @@ function VendorRepair:Init()
 	-- Ensures an open confirm dialog is closed when leaving vendor range
 	-- NB: register the event so that it is fired on main addon, not this wrapper
 	Apollo.RegisterEventHandler("CloseVendorWindow", "OnCancelPurchase", addon)
-	
-	self.xmlDoc = XmlDoc.CreateFromFile("VendorRepair.xml")
-	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
-	
+
 	return self
-end
-
-function VendorRepair:OnDocLoaded()	
-	-- Check that XML document is properly loaded
-	if module.xmlDoc == nil or not module.xmlDoc:IsLoaded() then
-		Apollo.AddAddonErrorText(module, "XML document was not loaded")
-		log:error("XML document was not loaded")
-		return
-	end
-		
-	-- Single-item repair line
-	local parent = addon.wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea")
-	module.wndItem = Apollo.LoadForm(module.xmlDoc, "ItemLineForm", parent, module)
-	if module.wndItem == nil then
-		Apollo.AddAddonErrorText(module, "Could not load the ItemLineForm window")
-		log:error("OnDocLoaded: wndItem is nil!")
-		return
-	end
-
-	-- Repair-all repair line
-	local parent = addon.wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea")
-	module.wndAll = Apollo.LoadForm(module.xmlDoc, "RepairAllForm", parent, module)
-	if module.wndAll == nil then
-		Apollo.AddAddonErrorText(module, "Could not load the RepairAllForm window")
-		log:error("OnDocLoaded: wndAll is nil!")
-		return
-	end
-		
-	module.wndItem:Show(false, true)	
-	module.wndAll:Show(false, true)	
-	module.xmlDoc = nil
-	
-	log:info("Module " .. module.MODULE_ID .. " fully loaded")
 end
 
 function VendorRepair:Activate()
@@ -236,8 +200,8 @@ function VendorRepair:GetDialogDetails(tPurchaseData)
 	local wnd
 	
 	if tItemData then
-		-- Single item repair (basically the same as single-item purchase)
-		wnd = module.wndItem
+		-- Single item repair (basically the same as single-item purchase)		
+		wnd = addon:GetDetailsForm(module.MODULE_ID, vendorAddon[module.strVendorFrame], addon.eDetailForms.StandardItem)
 		wnd:FindChild("ItemName"):SetText(tItemData.strName)
 		wnd:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
 		wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
@@ -256,21 +220,20 @@ function VendorRepair:GetDialogDetails(tPurchaseData)
 		wnd:FindChild("ItemIcon"):DestroyAllPixies()
 		wnd:FindChild("ItemIcon"):AddPixie(tPixieOverlay)
 
+		wnd:FindChild("StackSize"):Show(false, true)
+		
 		-- Update tooltip to match current item
 		wnd:SetData(tItemData)	
 		vendorAddon:OnVendorListItemGenerateTooltip(wnd, wnd)				
 	else
 		-- All items repair
-		wnd = module.wndAll
-		wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
-		wnd:FindChild("ItemPrice"):SetMoneySystem(tCallbackData.eCurrencyType1)		
-	end
-	
-	
-	-- Set basic info on details area
-	module.wndItem:Show(tItemData, true)
-	module.wndAll:Show(not tItemData, true)
-
+		wnd = addon:GetDetailsForm(module.MODULE_ID, vendorAddon[module.strVendorFrame], addon.eDetailForms.SimpleIcon)
+		
+		wnd:FindChild("Text"):SetText(Apollo.GetString("Vendor_RepairAll"))
+		wnd:FindChild("Price"):SetAmount(monPrice, true)
+		wnd:FindChild("Price"):SetMoneySystem(tCallbackData.eCurrencyType1)
+		wnd:FindChild("Icon"):SetSprite("IconSprites:Icon_BuffWarplots_repair")
+	end	
 	
 	-- Build optional table of static text strings (strTitle, StrConfirm, strCancel)
 	tStrings = {}

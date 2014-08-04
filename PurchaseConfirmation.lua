@@ -54,7 +54,8 @@ function PurchaseConfirmation:Init()
 	-- Shared forms, re-used by modules
 	self.eDetailForms = {
 		StandardItem = "DetailsStandardItemForm",
-		SimpleIcon = "DetailsSimpleIconForm"
+		SimpleIcon = "DetailsSimpleIconForm",
+		Preview = "DetailsPreviewForm"
 	}
 	self.tDetailForms = {}
 	
@@ -223,7 +224,9 @@ function PurchaseConfirmation:GetDialogForm(moduleId, wndParent)
 		
 		-- Update position to last saved one
 		local p = PC.tSettings.Modules[moduleId].tPosition
-		wndDialog:SetAnchorOffsets(p.left, p.top, p.right, p.bottom)
+		if p ~= nil then
+			wndDialog:SetAnchorOffsets(p.left, p.top, p.right, p.bottom)
+		end
 	end
 	
 	-- Return dialog to use
@@ -338,11 +341,10 @@ function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
 	
 	-- Hide all detail children
 	local children = wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea"):GetChildren()
-	for _,v in pairs(children) do
-		-- ... except vendor-specific info for the module which caused this price check
-		--v:Show(false, true)
+	for _,v in pairs(children) do		
+		v:Show(false, true)
 	end
-	wndDetails:Show(true, true)
+	wndDetails:Show(true, true) -- ... except one just returned from GetDialogDetails
 	
 	-- Prepare foldout area	
 	local wndFoldout = wndDialog:FindChild("FoldoutArea")
@@ -548,8 +550,10 @@ end
 -- when the Cancel button is clicked
 function PurchaseConfirmation:OnCancelPurchase(wndHandler, wndControl)
 	-- Hide all forms (easier than diggout out proper one)
-	for _,d in pairs(PC.tDialogForms) do
-		d.wndDialog:Show(false, true)
+	if PC.tDialogForms ~= nil then
+		for _,d in pairs(PC.tDialogForms) do
+			d.wndDialog:Show(false, true)
+		end
 	end
 end
 
