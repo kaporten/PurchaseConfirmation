@@ -13,7 +13,7 @@ local Settings = {}
 Apollo.RegisterPackage(Settings, "PurchaseConfirmation:Settings", 1, {"PurchaseConfirmation"})
 
 -- "glocals" set during Init
-local log
+local addon, log
 
 --- Standard Lua prototype class definition
 function Settings:new(o)	
