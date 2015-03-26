@@ -20,7 +20,7 @@ require "Item"
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
-PurchaseConfirmation.ADDON_VERSION = {8, 2, 1} -- major, minor, bugfix
+PurchaseConfirmation.ADDON_VERSION = {8, 2, 2} -- major, minor, bugfix
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
@@ -357,20 +357,20 @@ function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
 	wndDialog:FindChild("PurchaseButton"):SetData(tPurchaseData)
 	
 	-- Default text values for dialog
-	local strTitle = Apollo.GetString("CRB_Confirm") .. " " .. Apollo.GetString("CRB_Purchase") -- "Confirm Purchase"
-	local strConfirm = Apollo.GetString("CRB_Purchase") -- "Purchase"
+	local strType = String_GetWeaselString(Apollo.GetString("Vendor_Purchase"), "") -- "Purchase "
+	local strTitle = Apollo.GetString("CRB_Confirm") .. " " .. strType -- "Confirm Purchase"	
 	local strCancel = Apollo.GetString("Launcher_Cancel") -- "Cancel"
 
 	-- Override default texts with module-supplied ones, if available
 	if type(tStrings) == "table" then
 		strTitle = tStrings.strTitle or strTitle
-		strConfirm = tStrings.strConfirm or strConfirm
+		strType = tStrings.strType or strType
 		strCancel = tStrings.strCancel or strCancel
 	end
 
 	-- Set texts on dialog
 	wndDialog:FindChild("DialogArea"):FindChild("WindowTitle"):SetText(strTitle)
-	wndDialog:FindChild("DialogArea"):FindChild("PurchaseButton"):SetText(strConfirm)
+	wndDialog:FindChild("DialogArea"):FindChild("PurchaseButton"):SetText(strType)
 	wndDialog:FindChild("DialogArea"):FindChild("CancelButton"):SetText(strCancel)
 		
 	-- Show dialog, await button click	
