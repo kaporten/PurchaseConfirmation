@@ -208,7 +208,7 @@ function Settings:UpdateBalance()
 	-- Find checked (displayed) currency type, update balance window
 	local tCurrency = self.wndSettings:FindChild("CurrencySelectorSection"):GetRadioSelButton("PurchaseConfirmation_CurrencySelection"):GetData()
 	self.wndSettings:FindChild("Balance"):SetMoneySystem(tCurrency.eType)
-	self.wndSettings:FindChild("CurrentBalanceSection"):FindChild("Balance"):SetAmount(GameLib.GetPlayerCurrency(tCurrency.eType):GetAmount(), false)
+	self.wndSettings:FindChild("CurrentBalanceSection"):FindChild("Balance"):SetAmount(GameLib.GetPlayerCurrency(tCurrency.eType):GetAmount(), true)
 end
 
 -- Populates the currency control form for a single currency-type
@@ -359,7 +359,7 @@ function Settings:DefaultSettings()
 		
 		-- Fixed
 		t.tFixed = {}
-		t.tFixed.bEnabled = true		-- Fixed threshold enabled
+		t.tFixed.bEnabled = (v.eType ~= Money.CodeEnumCurrencyType.Credits) -- Fixed threshold enabled for all except normal cash
 		t.tFixed.monThreshold = 0		-- No amount configured
 		
 		-- Empty coffers

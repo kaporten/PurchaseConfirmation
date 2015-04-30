@@ -20,7 +20,7 @@ require "Item"
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
-PurchaseConfirmation.ADDON_VERSION = {8, 2, 2} -- major, minor, bugfix
+PurchaseConfirmation.ADDON_VERSION = {9, 0, 0} -- major, minor, bugfix
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
@@ -48,7 +48,8 @@ function PurchaseConfirmation:Init()
 	local strConfigureButtonText = "Purchase Conf."
 	local tDependencies = {
 		"Vendor", "Housing", "Costumes",
-		"ViragsMultibuyer", "LilVendor", "SpaceStashBank"
+		"ViragsMultibuyer", "LilVendor", "SpaceStashBank",
+		"GeminiConsole"
 	}
 	
 	-- Shared forms, re-used by modules
@@ -96,6 +97,7 @@ function PurchaseConfirmation:OnLoad()
 		{eType = Money.CodeEnumCurrencyType.Prestige,			strName = "Prestige",			strDescription = Apollo.GetString("CRB_Prestige_Desc")},
 		{eType = Money.CodeEnumCurrencyType.CraftingVouchers,	strName = "CraftingVouchers",	strDescription = Apollo.GetString("CRB_Crafting_Voucher_Desc")},
 		{eType = Money.CodeEnumCurrencyType.ElderGems,			strName = "ElderGems",			strDescription = Apollo.GetString("CRB_Elder_Gems_Desc")},
+		{eType = Money.CodeEnumCurrencyType.Glory,				strName = "Glory",				strDescription = Apollo.GetString("CRB_Glory_Desc")},
 	}
 	
 	-- Names of modules to load during initialization
@@ -121,26 +123,6 @@ function PurchaseConfirmation:OnDocLoaded()
 		return
 	end
 		
-	-- Load confirmation dialog form 
-	--self.wndDialog = Apollo.LoadForm(self.xmlDoc, "DialogForm", nil, self)
-	
-	-- Load common detail-panels (TODO: Rewire modules to use these, instead of having to do their own form-loading)
-	--self.tDetailForms[self.eDetailForms.StandardItem] = Apollo.LoadForm(self.xmlDoc, "DetailsStandardItemForm", self.wndDialog:FindChild("VendorSpecificArea"), self)
-	--self.tDetailForms[self.eDetailForms.SimpleIcon] = Apollo.LoadForm(self.xmlDoc, "DetailsSimpleIconForm", self.wndDialog:FindChild("VendorSpecificArea"), self)
-
-	--self:LocalizeDialog(self.wndDialog)
-	
-	
-			
-	-- Now that forms are loaded, remove XML doc for gc
-	--self.xmlDoc = nil
-
-	--[[
-		Settings vs regular module load-order is important...
-		Regular modules are loaded before settings, and cannot depend on settings during load.
-		Conversely, the Settings module rely on modules being fully loaded, before being loaded itself.
-	]]
-				
 	-- Load real modules. Always try to load/initialize all modules, regardless of previous failures.
 	self.modules = {}
 	for _,v in pairs(self.moduleNames) do

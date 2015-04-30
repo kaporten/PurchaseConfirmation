@@ -20,20 +20,6 @@ Apollo.RegisterPackage(VendorPurchase, VendorPurchase.MODULE_ID, 1, {"PurchaseCo
 -- "glocals" set during Init
 local addon, module, vendorAddon, log
 
--- Copied from the Util addon. Used to set item quality borders on the confirmation dialog
--- TODO: Figure out how to use list in Util addon itself.
-local qualityColors = {
-	ApolloColor.new("ItemQuality_Inferior"),
-	ApolloColor.new("ItemQuality_Average"),
-	ApolloColor.new("ItemQuality_Good"),
-	ApolloColor.new("ItemQuality_Excellent"),
-	ApolloColor.new("ItemQuality_Superb"),
-	ApolloColor.new("ItemQuality_Legendary"),
-	ApolloColor.new("ItemQuality_Artifact"),
-	ApolloColor.new("00000000")
-}
-
-
 --- Standard Lua prototype class definition
 function VendorPurchase:new(o)
 	o = o or {}
@@ -187,7 +173,10 @@ function VendorPurchase:GetPrice(tItemData, nCount)
 	log:debug("GetPrice: enter method, count: %s", tostring(nCount))
 	local monPrice = 0
 	
-	if type(tItemData.itemData) == "userdata" then
+	if tItemData.tPriceInfo.eCurrencyType1 == Money.CodeEnumCurrencyType.Glory then
+		-- Glory items return incorrect GetBuyPrice for some reason. Eldan Runic Modules are reported to cost 3356 Glory, yet has nAmount=100		
+		monPrice = tItemData.tPriceInfo.nAmount1			
+	elseif type(tItemData.itemData) == "userdata" then
 		-- Regular items have a nested "itemData" object with functions for getting price etc.
 		-- If that exist, use it to extract price details since that is how the Vendor module does it
 		monPrice = tItemData.itemData:GetBuyPrice():Multiply(nCount):GetAmount()
@@ -218,7 +207,7 @@ function VendorPurchase:GetDialogDetails(tPurchaseData)
 	
 	-- Set basic info on details area
 	wnd:FindChild("ItemName"):SetText(tItemData.strName)
-	wnd:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
+	wnd:FindChild("ItemIcon"):GetWindowSubclass():SetItem(tItemData.itemData)
 	wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
 	wnd:FindChild("ItemPrice"):SetMoneySystem(tItemData.tPriceInfo.eCurrencyType1)
 	wnd:FindChild("CantUse"):Show(vendorAddon:HelperPrereqFailed(tItemData))
@@ -230,23 +219,6 @@ function VendorPurchase:GetDialogDetails(tPurchaseData)
 	else
 		wnd:FindChild("StackSize"):Show(false, true)
 	end
-	
-	-- Extract item quality	
-	-- Some items (like mount speed upgrade) has no quality. Set default quality to none and override if quality is present
-	local eQuality = #qualityColors
-	local tItemDetailedInfo = Item.GetDetailedInfo(tItemData)
-	if type(tItemDetailedInfo.tPrimary) == "table" then
-		eQuality = tonumber(tItemDetailedInfo.tPrimary.eQuality)
-	end
-
-	-- Add pixie quality-color border to the ItemIcon element
-	local tPixieOverlay = {
-		strSprite = "UI_BK3_ItemQualityWhite",
-		loc = {fPoints = {0, 0, 1, 1}, nOffsets = {0, 0, 0, 0}},
-		cr = qualityColors[math.max(1, math.min(eQuality, #qualityColors))]
-	}
-	wnd:FindChild("ItemIcon"):DestroyAllPixies()
-	wnd:FindChild("ItemIcon"):AddPixie(tPixieOverlay)
 
 	-- Update tooltip to match current item
 	wnd:SetData(tItemData)	
