@@ -20,7 +20,7 @@ require "Item"
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
-PurchaseConfirmation.ADDON_VERSION = {9, 0, 0} -- major, minor, bugfix
+PurchaseConfirmation.ADDON_VERSION = {10, 0, 0} -- major, minor, bugfix
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
@@ -47,9 +47,9 @@ function PurchaseConfirmation:Init()
 	local bHasConfigureFunction = true
 	local strConfigureButtonText = "Purchase Conf."
 	local tDependencies = {
+		"GeminiConsole",
 		"Vendor", "Housing", "Costumes",
-		"ViragsMultibuyer", "LilVendor", "SpaceStashBank",
-		"GeminiConsole"
+		"SpaceStashBank"		
 	}
 	
 	-- Shared forms, re-used by modules
@@ -73,7 +73,7 @@ function PurchaseConfirmation:OnLoad()
 
 	-- GeminiLogger options
 	local opt = {
-		level = "FATAL",
+		level = PurchaseConfirmation.DEBUG_MODE and "DEBUG" or "FATAL",
 		pattern = "%d %n %c %l - %m",
 		appender = "GeminiConsole"
 	}
@@ -102,7 +102,6 @@ function PurchaseConfirmation:OnLoad()
 	
 	-- Names of modules to load during initialization
 	self.moduleNames = {		
-		"PurchaseConfirmation:CostumesDye",
 		"PurchaseConfirmation:HousingBuyToCrate",
 		"PurchaseConfirmation:SpaceStashBankSlot",
 		"PurchaseConfirmation:VendorPurchase",

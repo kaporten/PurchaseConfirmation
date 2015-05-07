@@ -35,25 +35,14 @@ function VendorPurchase:Init()
 	module = self -- Current module
 	log = addon.log
 	
-	-- Determine which combination of (Vendor|LilVendor)[ViragsMultibuyer] we're running
-	self.bViragsMultibuyer = Apollo.GetAddon("ViragsMultibuyer") ~= nil
-	self.bVendor = Apollo.GetAddon("Vendor") ~= nil
-	self.bLilVendor = Apollo.GetAddon("LilVendor") ~= nil
+	-- Reference to vendor addon
+	vendorAddon = Apollo.GetAddon("Vendor")
 	
-	-- Either Vendor or LilVendor is required	
-	self.strVendorAddon = (Apollo.GetAddon("Vendor") and "Vendor") or (Apollo.GetAddon("LilVendor") and "LilVendor")
-	log:info("Vendor addon: %s", tostring(self.strVendorAddon))
-	if not self.strVendorAddon then
-		self.strFailureMessage = string.format(locale["Module_Failure_Addon_Missing"], "Vendor, LilVendor")
+	if vendorAddon == nil then
+		self.strFailureMessage = string.format(locale["Module_Failure_Addon_Missing"], "Vendor")
 		error(self.strFailureMessage)
 	end
 		
-	-- Determine vendor window-variable name
-	self.strVendorFrame = "wnd" .. self.strVendorAddon -- "wndVendor" or "wndLilVendor"		
-
-	-- Actual reference to vendor addon
-	vendorAddon = Apollo.GetAddon(self.strVendorAddon)
-	
 	-- Ensures an open confirm dialog is closed when leaving vendor range
 	-- NB: register the event so that it is fired on main addon, not this wrapper
 	Apollo.RegisterEventHandler("CloseVendorWindow", "OnCancelPurchase", addon)
@@ -84,8 +73,7 @@ end
 --- Main hook interceptor function.
 -- Called on Vendor's "Purchase" buttonclick / item rightclick.
 -- @tItemData item being "operated on" (purchase, sold, buyback) on the Vendor
--- @bViragsConfirmed set if ViragsMultibuyer is present. True means purchase is already Virags-confirmed.
-function VendorPurchase:Intercept(tItemData, bViragsConfirmed)
+function VendorPurchase:Intercept(tItemData)
 	log:debug("Intercept: enter method")
 		
 	-- Store purchase details on module for easier debugging
@@ -98,8 +86,7 @@ function VendorPurchase:Intercept(tItemData, bViragsConfirmed)
 		module = module,
 		hook = module.hook,
 		hookParams = {
-			tItemData, 
-			bViragsConfirmed
+			tItemData
 		},
 		bHookParamsUnpack = true,
 		hookedAddon = vendorAddon
@@ -113,7 +100,7 @@ function VendorPurchase:Intercept(tItemData, bViragsConfirmed)
 	]]
 		
 	-- Only check thresholds if this is a purchase (not sales, repairs or buybacks)
-	if not vendorAddon[module.strVendorFrame]:FindChild("VendorTab0"):IsChecked() then
+	if not vendorAddon.wndVendor:FindChild("VendorTab0"):IsChecked() then
 		log:debug("Intercept: Not a purchase")
 		addon:CompletePurchase(tCallbackData)
 		return
@@ -127,20 +114,12 @@ function VendorPurchase:Intercept(tItemData, bViragsConfirmed)
 	end
 	
 	-- Determine stacksize bought
-	local nCount
-	if module.bViragsMultibuyer then
-		-- ViragsMultibuyer has a 250 stacksize max
-		nCount = Apollo.GetAddon("ViragsMultibuyer"):GetCount()
-		if nCount > 250 then 
-			nCount = 250
-		end
-		log:debug("ViragsMultibuyer count determined: %d", nCount)		
-	else
-		nCount = tItemData.nStackSize
-		log:debug("%s count determined: %d", module.strVendorAddon, nCount)		
-	end
+	local nCount = vendorAddon.nPreviousValue or 1
+	nCount = tItemData.nStackSize and (tItemData.nStackSize * nCount) or nCount
+	
 	tCallbackData.nCount = nCount
-		
+	log:warn("Item count determined: %d", tCallbackData.nCount)		
+	
 	-- Check if current currency is in supported-list
 	local tCurrency = addon:GetSupportedCurrencyByEnum(tItemData.tPriceInfo.eCurrencyType1)
 	if tCurrency == nil then
@@ -153,9 +132,6 @@ function VendorPurchase:Intercept(tItemData, bViragsConfirmed)
 		Purchase type is supported. Initiate price-check.
 	]]
 
-	-- IF PurchaseConfirmation allows the purchase, tell Virags that it's ok, so it is not double-confirmed
-	tCallbackData.hookParams[2] = true
-	
 	-- Aggregated purchase data
 	local tPurchaseData = {
 		tCallbackData = tCallbackData,
@@ -203,7 +179,7 @@ function VendorPurchase:GetDialogDetails(tPurchaseData)
 	local tItemData = tCallbackData.hookParams[1]
 	
 	-- Get standard detail form for a dialog with Vendor as parent
-	local wnd = addon:GetDetailsForm(module.MODULE_ID, vendorAddon[module.strVendorFrame], addon.eDetailForms.StandardItem)
+	local wnd = addon:GetDetailsForm(module.MODULE_ID, vendorAddon.wndVendor, addon.eDetailForms.StandardItem)
 	
 	-- Set basic info on details area
 	wnd:FindChild("ItemName"):SetText(tItemData.strName)
