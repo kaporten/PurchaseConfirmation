@@ -37,7 +37,6 @@ function VendorPurchase:Init()
 	
 	-- Reference to vendor addon
 	vendorAddon = Apollo.GetAddon("Vendor")
-	
 	if vendorAddon == nil then
 		self.strFailureMessage = string.format(locale["Module_Failure_Addon_Missing"], "Vendor")
 		error(self.strFailureMessage)

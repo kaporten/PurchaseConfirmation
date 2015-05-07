@@ -48,24 +48,13 @@ function VendorRepair:Init()
 	addon = Apollo.GetAddon("PurchaseConfirmation") -- main addon, calling the shots
 	module = self -- Current module
 	log = addon.log
-
-	-- Determine if Vendor or LilVendor is in use
-	self.bVendor = Apollo.GetAddon("Vendor") ~= nil
-	self.bLilVendor = Apollo.GetAddon("LilVendor") ~= nil
-	
-	-- Either Vendor or LilVendor is required	
-	self.strVendorAddon = (Apollo.GetAddon("Vendor") and "Vendor") or (Apollo.GetAddon("LilVendor") and "LilVendor")
-	log:info("Vendor addon: %s", tostring(self.strVendorAddon))
-	if not self.strVendorAddon then
-		self.strFailureMessage = string.format(locale["Module_Failure_Addon_Missing"], "Vendor, LilVendor")
+		
+	-- Reference to vendor addon
+	vendorAddon = Apollo.GetAddon("Vendor")
+	if vendorAddon == nil then
+		self.strFailureMessage = string.format(locale["Module_Failure_Addon_Missing"], "Vendor")
 		error(self.strFailureMessage)
 	end
-		
-	-- Determine vendor window-variable name
-	self.strVendorFrame = "wnd" .. self.strVendorAddon -- "wndVendor" or "wndLilVendor"		
-
-	-- Actual reference to vendor addon
-	vendorAddon = Apollo.GetAddon(self.strVendorAddon)
 			
 	-- Ensures an open confirm dialog is closed when leaving vendor range
 	-- NB: register the event so that it is fired on main addon, not this wrapper
@@ -97,8 +86,7 @@ end
 --- Main hook interceptor function.
 -- Called on Vendor's "Purchase" buttonclick / item rightclick.
 -- @tItemData item being "operated on" (purchase, sold, buyback) on the Vendr
--- @bViragsConfirmed, not used in this module, just passed along
-function VendorRepair:Intercept(tItemData, bViragsConfirmed)
+function VendorRepair:Intercept(tItemData)
 	log:debug("Intercept: enter method")
 		
 	-- Store purchase details on module for easier debugging
@@ -111,11 +99,10 @@ function VendorRepair:Intercept(tItemData, bViragsConfirmed)
 		module = module,
 		hook = module.hook,
 		hookParams = {
-			tItemData, 
-			bViragsConfirmed
+			tItemData
 		},
 		bHookParamsUnpack = true,
-		hookedAddon = vendor
+		hookedAddon = vendorAddon
 	}
 
 	--[[
@@ -126,7 +113,7 @@ function VendorRepair:Intercept(tItemData, bViragsConfirmed)
 	]]
 		
 	-- Only check thresholds if this is a repair
-	if not vendorAddon[module.strVendorFrame]:FindChild("VendorTab3"):IsChecked() then
+	if not vendorAddon.wndVendor:FindChild("VendorTab3"):IsChecked() then
 		log:debug("Intercept: Not a repair")
 		addon:CompletePurchase(tCallbackData)
 		return
@@ -201,7 +188,7 @@ function VendorRepair:GetDialogDetails(tPurchaseData)
 	
 	if tItemData then
 		-- Single item repair (basically the same as single-item purchase)		
-		wnd = addon:GetDetailsForm(module.MODULE_ID, vendorAddon[module.strVendorFrame], addon.eDetailForms.StandardItem)
+		wnd = addon:GetDetailsForm(module.MODULE_ID, vendorAddon.wndVendor, addon.eDetailForms.StandardItem)
 		wnd:FindChild("ItemName"):SetText(tItemData.strName)
 		wnd:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
 		wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
@@ -227,7 +214,7 @@ function VendorRepair:GetDialogDetails(tPurchaseData)
 		vendorAddon:OnVendorListItemGenerateTooltip(wnd, wnd)				
 	else
 		-- All items repair
-		wnd = addon:GetDetailsForm(module.MODULE_ID, vendorAddon[module.strVendorFrame], addon.eDetailForms.SimpleIcon)
+		wnd = addon:GetDetailsForm(module.MODULE_ID, vendorAddon.wndVendor, addon.eDetailForms.SimpleIcon)
 		
 		wnd:FindChild("Text"):SetText(Apollo.GetString("Vendor_RepairAll"))
 		wnd:FindChild("Price"):SetAmount(monPrice, true)
