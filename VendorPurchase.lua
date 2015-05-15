@@ -112,9 +112,20 @@ function VendorPurchase:Intercept(tItemData)
 		return
 	end
 	
-	-- Determine stacksize bought
-	local nCount = vendorAddon.nPreviousValue or 1
-	nCount = tItemData.nStackSize and (tItemData.nStackSize * nCount) or nCount
+	-- Determine spinner purchase-count
+	local nSpinnerAmount = 1
+	local wndSpinner = vendorAddon.wndVendor:FindChild("AmountValue")
+	if wndSpinner ~= nil then
+		nSpinnerAmount = wndSpinner:GetValue() or 1
+	end
+	--log:info("Spinner Amount: " .. nSpinnerAmount)
+	
+	-- Determine stacksize 
+	local nStackSize = tItemData.nStackSize or 1
+	--log:info("Stack Size: " .. nStackSize)
+	
+	local nCount = nSpinnerAmount * nStackSize
+	--log:info("Total item count: " .. nCount)
 	
 	tCallbackData.nCount = nCount
 	log:warn("Item count determined: %d", tCallbackData.nCount)		
@@ -146,20 +157,7 @@ end
 -- @param tItemData Current purchase item data, as supplied by the Vendor addon
 function VendorPurchase:GetPrice(tItemData, nCount)
 	log:debug("GetPrice: enter method, count: %s", tostring(nCount))
-	local monPrice = 0
-	
-	if tItemData.tPriceInfo.eCurrencyType1 == Money.CodeEnumCurrencyType.Glory then
-		-- Glory items return incorrect GetBuyPrice for some reason. Eldan Runic Modules are reported to cost 3356 Glory, yet has nAmount=100		
-		monPrice = tItemData.tPriceInfo.nAmount1			
-	elseif type(tItemData.itemData) == "userdata" then
-		-- Regular items have a nested "itemData" object with functions for getting price etc.
-		-- If that exist, use it to extract price details since that is how the Vendor module does it
-		monPrice = tItemData.itemData:GetBuyPrice():Multiply(nCount):GetAmount()
-	elseif type(tItemData.tPriceInfo) == "table" then
-		-- If no nested itemData table exists, just get the "raw" price. Only known case so far: buying the mount speed upgrade.
-		monPrice = tItemData.tPriceInfo.nAmount1		
-	end
-	
+	local monPrice = tItemData.tPriceInfo.nAmount1 * nCount	
 	log:debug("GetPrice: Price extracted: " .. monPrice)
 
 	return monPrice
