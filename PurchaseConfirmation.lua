@@ -20,7 +20,7 @@ require "Item"
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
-PurchaseConfirmation.ADDON_VERSION = {10, 0, 0} -- major, minor, bugfix
+PurchaseConfirmation.ADDON_VERSION = {10, 2, 0} -- major, minor, bugfix
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
@@ -111,6 +111,8 @@ function PurchaseConfirmation:OnLoad()
 	-- Load the XML file and await callback
 	self.xmlDoc = XmlDoc.CreateFromFile("PurchaseConfirmation.xml")
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)	
+	
+	Event_FireGenericEvent("OneVersion_ReportAddonInfo", "PurchaseConfirmation", self.ADDON_VERSION[1], self.ADDON_VERSION[2], self.ADDON_VERSION[3])
 end
 
 -- Called when XML doc is fully loaded/parsed. Create and configure forms.
