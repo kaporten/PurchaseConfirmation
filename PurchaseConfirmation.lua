@@ -20,7 +20,7 @@ require "Item"
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
-PurchaseConfirmation.ADDON_VERSION = {10, 2, 0} -- major, minor, bugfix
+PurchaseConfirmation.ADDON_VERSION = {10, 3, 0} -- major, minor, bugfix
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
@@ -44,6 +44,12 @@ end
 
 -- Addon registration
 function PurchaseConfirmation:Init()
+	-- Only actually load PurchaseConfirmation if it is not already loaded
+	-- This is to prevent double-loads caused by "purchaseconfirmation" vs "PurchaseConfirmation" dir renames
+	if Apollo.GetAddon("PurchaseConfirmation") ~= nil then
+		return
+	end
+
 	local bHasConfigureFunction = true
 	local strConfigureButtonText = "Purchase Conf."
 	local tDependencies = {

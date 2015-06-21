@@ -7,6 +7,19 @@ Source code can be found on [GitHub](https://github.com/kaporten/PurchaseConfirm
 
 Released versions are published on [Curse](http://www.curse.com/ws-addons/WildStar/220154-purchaseconfirmation). Full addon description can be found on Curse as well.
 
-Curse lists the addon license as "All Rights Reserved", but that's just because you _have_ to select a license on CurseForge, and I couldn't be bothered to read up on the different licenses. Consider this notice my express permission to copy/fork the addon in part or in whole, at any point in time, for any reason :)
+Double addon registration issue?
+----------
+Due to addon folder renames, you may see PurchaseConfirmation registered twice on the Addons list in-game. The addon should still work fine, you just see two entries instead of one. You can fix the double-entry issue this way:
 
-I'd appreciate a notification if you do, though.
+1. Shut down WildStar completely.
+1. Uninstall PurchaseConfirmation (delete directory "%APPDATA%\NCSOFT\WildStar\addons\PurchaseConfirmation", or remove it via Curse Client - you can keep the settings).
+1. Start WildStar and log in on any character.
+1. Shut down WildStar again, and re-install the addon.
+
+Alternative fix:
+
+1. Shut down WildStar completely.
+1. Open file "%APPDATA%\NCSOFT\WildStar\Addons.xml" in a text editor.
+1. Search for lines containing "PurchaseConfirmation" or "purchaseconfirmation". You'll find 2 lines. 
+1. Delete the all-lowercase line and save the file.
+1. Start WildStar again.
