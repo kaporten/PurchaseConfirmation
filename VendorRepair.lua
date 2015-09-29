@@ -113,7 +113,7 @@ function VendorRepair:Intercept(tItemData)
 	]]
 		
 	-- Only check thresholds if this is a repair
-	if not vendorAddon.wndVendor:FindChild("VendorTab3"):IsChecked() then
+	if not vendorAddon.tWndRefs.wndVendor:FindChild("VendorTab3"):IsChecked() then
 		log:debug("Intercept: Not a repair")
 		addon:CompletePurchase(tCallbackData)
 		return
@@ -188,7 +188,7 @@ function VendorRepair:GetDialogDetails(tPurchaseData)
 	
 	if tItemData then
 		-- Single item repair (basically the same as single-item purchase)		
-		wnd = addon:GetDetailsForm(module.MODULE_ID, vendorAddon.wndVendor, addon.eDetailForms.StandardItem)
+		wnd = addon:GetDetailsForm(module.MODULE_ID, vendorAddon.tWndRefs.wndVendor, addon.eDetailForms.StandardItem)
 		wnd:FindChild("ItemName"):SetText(tItemData.strName)
 		wnd:FindChild("ItemIcon"):SetSprite(tItemData.strIcon)
 		wnd:FindChild("ItemPrice"):SetAmount(monPrice, true)
@@ -214,7 +214,7 @@ function VendorRepair:GetDialogDetails(tPurchaseData)
 		vendorAddon:OnVendorListItemGenerateTooltip(wnd, wnd)				
 	else
 		-- All items repair
-		wnd = addon:GetDetailsForm(module.MODULE_ID, vendorAddon.wndVendor, addon.eDetailForms.SimpleIcon)
+		wnd = addon:GetDetailsForm(module.MODULE_ID, vendorAddon.tWndRefs.wndVendor, addon.eDetailForms.SimpleIcon)
 		
 		wnd:FindChild("Text"):SetText(Apollo.GetString("Vendor_RepairAll"))
 		wnd:FindChild("Price"):SetAmount(monPrice, true)

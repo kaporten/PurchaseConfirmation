@@ -20,7 +20,7 @@ require "Item"
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
-PurchaseConfirmation.ADDON_VERSION = {10, 3, 0} -- major, minor, bugfix
+PurchaseConfirmation.ADDON_VERSION = {10, 4, 0} -- major, minor, bugfix
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
@@ -64,7 +64,6 @@ function PurchaseConfirmation:Init()
 		SimpleIcon = "DetailsSimpleIconForm",
 		Preview = "DetailsPreviewForm"
 	}
-	self.tDetailForms = {}
 	
 	Apollo.RegisterAddon(self, bHasConfigureFunction, strConfigureButtonText, tDependencies)
 	PC = self
@@ -186,40 +185,24 @@ function PurchaseConfirmation:GetDialogForm(moduleId, wndParent)
 		log:fatal("nil input to GetDialogForm")
 		return
 	end
-
-	PC.tDialogForms = PC.tDialogForms or {}
-	if PC.tDialogForms[moduleId] == nil then
-		log:info("Instantiating new Dialog form for parent window '%s'", wndParent:GetName())
-
-		-- First time a dialog under this parent was needed, instantiate
-		PC.tDialogForms[moduleId] = {}		
-		PC.tDialogForms[moduleId].tDetailForms = {} -- room for multiple detail windows		
+	
+	-- Load form
+	local wndDialog = Apollo.LoadForm(PC.xmlDoc, "DialogForm", wndParent, PC)		
+			
+	-- Localize loaded dialog
+	PC:LocalizeDialog(wndDialog)
 		
-		-- Load form
-		local wndDialog = Apollo.LoadForm(PC.xmlDoc, "DialogForm", wndParent, PC)		
-		if wndDialog == nil then
-			log:fatal("Could not instantiate new dialog form")
-			return
-		end
+	-- Attach foldout window to details button
+	wndDialog:FindChild("DetailsButton"):AttachWindow(wndDialog:FindChild("FoldoutArea"))
 		
-		-- Add to list of instantiated dialog windows
-		PC.tDialogForms[moduleId].wndDialog = wndDialog
-				
-		-- Localize loaded dialog
-		PC:LocalizeDialog(wndDialog)
-		
-		-- Attach foldout window to details button
-		wndDialog:FindChild("DetailsButton"):AttachWindow(wndDialog:FindChild("FoldoutArea"))
-		
-		-- Update position to last saved one
-		local p = PC.tSettings.Modules[moduleId].tPosition
-		if p ~= nil then
-			wndDialog:SetAnchorOffsets(p.left, p.top, p.right, p.bottom)
-		end
+	-- Update position to last saved one
+	local p = PC.tSettings.Modules[moduleId].tPosition
+	if p ~= nil then
+		wndDialog:SetAnchorOffsets(p.left, p.top, p.right, p.bottom)
 	end
 	
 	-- Return dialog to use
-	return PC.tDialogForms[moduleId].wndDialog
+	return wndDialog
 end
 
 -- Finds or loads a detail-window under the specified parent (vendor) window's dialog
@@ -231,20 +214,15 @@ function PurchaseConfirmation:GetDetailsForm(moduleId, wndParent, eDetailForm)
 
 	-- Double purpose: load the dialog form itself if not already done, and get the actual ref to use later
 	local wndDialog = PC:GetDialogForm(moduleId, wndParent)
+	local wndDetail = Apollo.LoadForm(PC.xmlDoc, eDetailForm, wndDialog:FindChild("VendorSpecificArea"), PC)
 	
-	if wndDialog == nil then
-		log:fatal("Dialog form not found for parent-window")
-		return
+	if PC.wndDialog ~= nil then
+		Print("Destroying old form")
+		PC.wndDialog:Destroy()
 	end
-
-	-- Instantiate details window if not already done
-	if PC.tDialogForms[moduleId].tDetailForms[eDetailForm] == nil then
-		log:info("Instantiating new '%s'-Details form for %s", eDetailForm, wndParent:GetName())
-		PC.tDialogForms[moduleId].tDetailForms[eDetailForm] = 
-			Apollo.LoadForm(PC.xmlDoc, eDetailForm, wndDialog:FindChild("VendorSpecificArea"), PC)
-	end
+	PC.wndDialog = wndDialog
 	
-	return PC.tDialogForms[moduleId].tDetailForms[eDetailForm]
+	return wndDetail
 end
 
 --- Called by addon-hook when a purchase is taking place.
@@ -320,13 +298,8 @@ function PurchaseConfirmation:RequestConfirmation(tPurchaseData, tThresholds)
 	
 	-- Prepare central details area		
 	local wndDetails, tStrings = tCallbackData.module:GetDialogDetails(tPurchaseData)
-	
-	-- Hide all other dialogs from other modules
-	for k,v in pairs(PC.tDialogForms) do
-		v.wndDialog:Show(tCallbackData.module.MODULE_ID == k)
-	end
-	
-	local wndDialog = PC.tDialogForms[tCallbackData.module.MODULE_ID].wndDialog
+		
+	local wndDialog = PC.wndDialog
 	
 	-- Hide all detail children
 	local children = wndDialog:FindChild("DialogArea"):FindChild("VendorSpecificArea"):GetChildren()
@@ -527,7 +500,8 @@ function PurchaseConfirmation:OnConfirmPurchase(wndHandler, wndControl)
 	local tPurchaseData = wndControl:GetData()
 	
 	-- Hide dialog
-	PC.tDialogForms[tPurchaseData.tCallbackData.module.MODULE_ID].wndDialog:Show(false, true)
+	PC.wndDialog:Show(false, true)
+	PC.wndDialog:Destroy()
 	
 	local tCurrencySettings = self.tSettings.Currencies[tPurchaseData.tCurrency.strName]
 	
@@ -539,11 +513,8 @@ end
 -- when the Cancel button is clicked
 function PurchaseConfirmation:OnCancelPurchase(wndHandler, wndControl)
 	-- Hide all forms (easier than diggout out proper one)
-	if PC.tDialogForms ~= nil then
-		for _,d in pairs(PC.tDialogForms) do
-			d.wndDialog:Show(false, true)
-		end
-	end
+	PC.wndDialog:Show(false, true)
+	PC.wndDialog:Destroy()
 end
 
 --- Clicking the detail-panel configure button opens the config

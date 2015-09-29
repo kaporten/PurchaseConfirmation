@@ -99,7 +99,7 @@ function VendorPurchase:Intercept(tItemData)
 	]]
 		
 	-- Only check thresholds if this is a purchase (not sales, repairs or buybacks)
-	if not vendorAddon.wndVendor:FindChild("VendorTab0"):IsChecked() then
+	if not vendorAddon.tWndRefs.wndVendor:FindChild("VendorTab0"):IsChecked() then
 		log:debug("Intercept: Not a purchase")
 		addon:CompletePurchase(tCallbackData)
 		return
@@ -114,7 +114,7 @@ function VendorPurchase:Intercept(tItemData)
 	
 	-- Determine spinner purchase-count
 	local nSpinnerAmount = 1
-	local wndSpinner = vendorAddon.wndVendor:FindChild("AmountValue")
+	local wndSpinner = vendorAddon.tWndRefs.wndVendor:FindChild("AmountValue")
 	if wndSpinner ~= nil then
 		nSpinnerAmount = wndSpinner:GetValue() or 1
 	end
@@ -176,8 +176,8 @@ function VendorPurchase:GetDialogDetails(tPurchaseData)
 	local tItemData = tCallbackData.hookParams[1]
 	
 	-- Get standard detail form for a dialog with Vendor as parent
-	local wnd = addon:GetDetailsForm(module.MODULE_ID, vendorAddon.wndVendor, addon.eDetailForms.StandardItem)
-	
+	local wnd = addon:GetDetailsForm(module.MODULE_ID, vendorAddon.tWndRefs.wndVendor, addon.eDetailForms.StandardItem)
+		
 	-- Set basic info on details area
 	wnd:FindChild("ItemName"):SetText(tItemData.strName)
 	wnd:FindChild("ItemIcon"):GetWindowSubclass():SetItem(tItemData.itemData)
