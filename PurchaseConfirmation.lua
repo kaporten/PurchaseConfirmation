@@ -20,7 +20,7 @@ require "Item"
 
 -- Addon object itself
 local PurchaseConfirmation = {} 
-PurchaseConfirmation.ADDON_VERSION = {10, 4, 0} -- major, minor, bugfix
+PurchaseConfirmation.ADDON_VERSION = {10, 4, 1} -- major, minor, bugfix
 
 -- Development mode settings. Should be false/"ERROR" for release builds.
 -- "Debug mode" mean never actually delegate to vendors (never actually purchase stuff)
@@ -513,8 +513,10 @@ end
 -- when the Cancel button is clicked
 function PurchaseConfirmation:OnCancelPurchase(wndHandler, wndControl)
 	-- Hide all forms (easier than diggout out proper one)
-	PC.wndDialog:Show(false, true)
-	PC.wndDialog:Destroy()
+	if PC.wndDialog ~= nil then
+		PC.wndDialog:Show(false, true)
+		PC.wndDialog:Destroy()
+	end
 end
 
 --- Clicking the detail-panel configure button opens the config
